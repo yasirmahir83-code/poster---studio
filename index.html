@@ -916,6 +916,9 @@ async function buildOne(content, channel, time, idx){
     posterDataUrl = await fetchArabicPoster(content, 'watchit');
   }
   if(!posterDataUrl){
+    posterDataUrl = await fetchArabicPoster(content, 'rotana');
+  }
+  if(!posterDataUrl){
     posterDataUrl=await fetchTmdbPoster(content,0);
   }
 
@@ -1044,7 +1047,7 @@ async function buildOne(content, channel, time, idx){
 
   // refresh poster button — cycles through all sources
   let tmdbSkip=0;
-  const sources=['shahid','osn','watchit','tmdb'];
+  const sources=['shahid','osn','watchit','rotana','tmdb'];
   let sourceIdx=0;
   const refreshBtn=document.createElement('button');refreshBtn.className='btn-edit';
   refreshBtn.innerHTML='🔄 بوستر ثاني';
