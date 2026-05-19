@@ -1,0 +1,1385 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Poster Studio</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cairo:wght@400;700;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#07070f;color:#fff;font-family:'Cairo',sans-serif;min-height:100vh;direction:rtl}
+
+.hdr{padding:26px 40px 16px;text-align:center;background:linear-gradient(180deg,#0c0c22,#07070f);border-bottom:1px solid rgba(201,168,76,.15);position:relative}
+.hdr::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(201,168,76,.1) 0%,transparent 65%);pointer-events:none}
+.hdr-sub{font-size:10px;letter-spacing:5px;color:#c9a84c;text-transform:uppercase;margin-bottom:6px;font-family:Arial}
+.hdr h1{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:6px;background:linear-gradient(135deg,#fff 20%,#f0d080 60%,#fff 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}
+.hdr p{color:rgba(255,255,255,.35);font-size:12px;max-width:500px;margin:0 auto}
+
+.tabs{display:flex;border-bottom:1px solid rgba(255,255,255,.07);background:#0a0a18;position:sticky;top:0;z-index:100}
+.tab{flex:1;padding:12px;text-align:center;cursor:pointer;font-size:12px;font-weight:700;color:rgba(255,255,255,.35);border-bottom:2px solid transparent;transition:all .2s;font-family:'Cairo',sans-serif}
+.tab.active{color:#c9a84c;border-bottom-color:#c9a84c;background:rgba(201,168,76,.04)}
+.tabcontent{display:none}.tabcontent.active{display:block}
+.main{max-width:880px;margin:0 auto;padding:28px 20px 70px}
+
+.upzone{border:2px dashed rgba(201,168,76,.22);border-radius:12px;padding:36px;text-align:center;cursor:pointer;transition:all .3s;background:rgba(201,168,76,.02);margin-bottom:14px}
+.upzone:hover,.upzone.drag{border-color:#c9a84c;background:rgba(201,168,76,.06)}
+.upzone .ico{font-size:40px;margin-bottom:8px;display:block}
+.upzone h2{font-size:15px;font-weight:700;margin-bottom:4px}
+.upzone p{color:rgba(255,255,255,.32);font-size:12px}
+.upzone strong{color:#c9a84c}
+
+.btn-gen{display:block;width:100%;padding:13px;background:linear-gradient(135deg,#c9a84ccc,#c9a84c66);border:none;border-radius:9px;color:#fff;font-family:'Cairo',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:18px;transition:opacity .2s}
+.btn-gen:hover{opacity:.85}.btn-gen:disabled{opacity:.4;cursor:not-allowed}
+
+.errbox{background:rgba(255,50,50,.07);border:1px solid rgba(255,80,80,.25);border-radius:8px;padding:11px 15px;color:#ff7070;font-size:12px;margin-bottom:14px;display:none}
+.xls-status{font-size:12px;color:rgba(201,168,76,.7);margin-bottom:10px;display:none}
+
+.sp{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:14px 16px;margin-bottom:18px;display:none}
+.sp-label{font-size:11px;color:#c9a84c;margin-bottom:7px}
+.pgbg{background:rgba(255,255,255,.06);border-radius:99px;height:3px;overflow:hidden;margin-bottom:8px}
+.pgfill{height:100%;border-radius:99px;background:linear-gradient(90deg,#c9a84c,#f0d080);transition:width .4s;width:0%}
+.pgitems{display:flex;flex-direction:column;gap:4px;max-height:110px;overflow-y:auto}
+.pgitem{font-size:11px;color:rgba(255,255,255,.38);display:flex;align-items:center;gap:6px;direction:rtl}
+.pgitem.ok{color:rgba(201,168,76,.75)}.pgitem.fail{color:rgba(255,120,120,.65)}
+.pgdot{width:4px;height:4px;border-radius:50%;background:currentColor;flex-shrink:0}
+
+.res-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:8px}
+.res-count{font-size:13px;color:#c9a84c;font-weight:700}
+.res-actions{display:flex;gap:8px;align-items:center}
+.btn-clr{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);color:rgba(255,255,255,.32);padding:5px 12px;border-radius:6px;cursor:pointer;font-size:11px;font-family:'Cairo',sans-serif;transition:all .2s}
+.btn-clr:hover{border-color:rgba(255,80,80,.4);color:#ff7070}
+.btn-dl-all{background:linear-gradient(135deg,#4c9ac9cc,#4c9ac966);border:none;color:#fff;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:11px;font-family:'Cairo',sans-serif;font-weight:700;transition:opacity .2s;display:inline-flex;align-items:center;gap:5px}
+.btn-dl-all:hover{opacity:.82}
+.btn-dl-all:disabled{opacity:.4;cursor:not-allowed}
+
+/* POSTER WRAP */
+.pwrap{margin-bottom:24px;animation:fu .4s ease both}
+@keyframes fu{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+canvas.pcv{display:block;width:700px;height:450px}
+
+/* ACTION BUTTONS */
+.pactions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+.btn-dl,.btn-edit{padding:8px 18px;border:none;border-radius:7px;cursor:pointer;font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;color:#fff;transition:opacity .2s,transform .15s;display:inline-flex;align-items:center;gap:6px}
+.btn-dl:hover,.btn-edit:hover{opacity:.82;transform:translateY(-1px)}
+.btn-dl:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-edit{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15)}
+
+/* EDIT PANEL */
+.edit-panel{background:#0e0e1e;border:1px solid rgba(201,168,76,.2);border-radius:12px;padding:18px;margin-top:10px;display:none}
+.edit-panel h4{font-size:12px;color:#c9a84c;letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;font-family:Arial}
+.edit-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px;margin-bottom:16px}
+.edit-col{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:8px;padding:12px}
+.edit-col-title{font-size:11px;color:#c9a84c;font-weight:700;margin-bottom:10px;text-align:center}
+.edit-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:6px}
+.edit-row label{font-size:10px;color:rgba(255,255,255,.45);white-space:nowrap}
+.edit-row input[type=range]{flex:1;accent-color:#c9a84c;cursor:pointer}
+.edit-row input[type=number]{width:52px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:5px;padding:3px 6px;color:#fff;font-size:11px;font-family:Arial;text-align:center}
+.edit-row input[type=number]:focus{outline:none;border-color:#c9a84c}
+.edit-row input[type=text]{flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:5px;padding:3px 6px;color:#fff;font-size:11px;font-family:'Cairo',sans-serif;direction:rtl}
+.edit-row input[type=text]:focus{outline:none;border-color:#c9a84c}
+.color-btns{display:flex;gap:6px;margin-top:4px}
+.cbtn{padding:4px 10px;border:1px solid rgba(255,255,255,.15);border-radius:5px;cursor:pointer;font-size:11px;font-family:Arial;font-weight:700;transition:all .2s}
+.cbtn.active{border-color:#c9a84c;box-shadow:0 0 0 2px rgba(201,168,76,.4)}
+.shadow-row{display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap}
+.shadow-row label{font-size:10px;color:rgba(255,255,255,.45)}
+.toggle{width:32px;height:18px;background:rgba(255,255,255,.12);border-radius:99px;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0}
+.toggle.on{background:#c9a84c}
+.toggle::after{content:'';position:absolute;width:14px;height:14px;background:#fff;border-radius:50%;top:2px;left:2px;transition:left .2s}
+.toggle.on::after{left:16px}
+/* title mode toggle */
+.mode-btns{display:flex;gap:5px;margin-bottom:10px}
+.mbtn{flex:1;padding:5px 8px;border:1px solid rgba(255,255,255,.15);border-radius:5px;cursor:pointer;font-size:10px;font-family:'Cairo',sans-serif;color:rgba(255,255,255,.5);background:rgba(255,255,255,.04);text-align:center;transition:all .2s}
+.mbtn.active{border-color:#c9a84c;color:#c9a84c;background:rgba(201,168,76,.08)}
+
+/* font selector */
+.font-sel{width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:5px;padding:4px 7px;color:#fff;font-size:11px;cursor:pointer;font-family:'Cairo',sans-serif;margin-bottom:6px}
+.font-sel:focus{outline:none;border-color:#c9a84c}
+
+/* LIBRARY TABS */
+.lib-info{background:rgba(201,168,76,.04);border:1px solid rgba(201,168,76,.12);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:11px;color:rgba(255,255,255,.45);line-height:1.8}
+.lib-info strong{color:#c9a84c}
+.lm-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px}
+.lm-top h2{font-size:14px;font-weight:700;color:#c9a84c}
+.btn-add{background:linear-gradient(135deg,#c9a84ccc,#c9a84c77);border:none;color:#fff;padding:8px 16px;border-radius:7px;cursor:pointer;font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;transition:opacity .2s}
+.btn-add:hover{opacity:.82}
+.add-form{background:rgba(255,255,255,.03);border:1px solid rgba(201,168,76,.18);border-radius:10px;padding:16px;margin-bottom:18px;display:none}
+.add-form h3{font-size:12px;color:#c9a84c;margin-bottom:11px;font-weight:700}
+.form-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.form-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:130px}
+.form-group label{font-size:10px;color:rgba(255,255,255,.42);letter-spacing:.8px}
+.form-group input[type=text]{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:7px 10px;color:#fff;font-family:'Cairo',sans-serif;font-size:12px;outline:none;transition:border .2s;direction:ltr}
+.form-group input[type=text]:focus{border-color:#c9a84c}
+.upbtn{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:7px 12px;color:rgba(255,255,255,.5);cursor:pointer;font-family:'Cairo',sans-serif;font-size:12px;transition:all .2s;white-space:nowrap}
+.upbtn:hover{border-color:#c9a84c;color:#c9a84c}
+.prev-wrap{display:none;align-items:center;gap:8px;margin-top:9px}
+.prev-wrap img{height:30px;object-fit:contain;border-radius:3px;background:rgba(255,255,255,.04);padding:3px}
+.prev-wrap span{font-size:10px;color:rgba(255,255,255,.38)}
+.btn-save{background:linear-gradient(135deg,#c9a84ccc,#c9a84c77);border:none;color:#fff;padding:8px 18px;border-radius:7px;cursor:pointer;font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;white-space:nowrap;transition:opacity .2s;align-self:flex-end}
+.btn-save:hover{opacity:.82}
+.logos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.logo-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:11px;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;transition:border .2s}
+.logo-card:hover{border-color:rgba(201,168,76,.3)}
+.logo-card img{height:36px;object-fit:contain;max-width:110px}
+.logo-card-name{font-size:10px;color:rgba(255,255,255,.45);text-align:center;word-break:break-word}
+.logo-card-del{position:absolute;top:4px;left:4px;background:rgba(255,50,50,.1);border:1px solid rgba(255,80,80,.15);color:#ff7070;border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:10px;opacity:0;transition:opacity .2s}
+.logo-card:hover .logo-card-del{opacity:1}
+.poster-list{display:flex;flex-direction:column;gap:7px;margin-top:14px}
+.poster-item{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);border-radius:7px;padding:9px 12px;display:flex;align-items:center;gap:10px;direction:ltr}
+.poster-item-thumb{width:56px;height:32px;object-fit:cover;border-radius:3px;flex-shrink:0}
+.poster-item-name{font-size:11px;color:rgba(255,255,255,.65);flex:1}
+.poster-item-del{color:rgba(255,80,80,.55);cursor:pointer;font-size:12px;padding:3px 7px;border-radius:4px;transition:all .2s}
+.poster-item-del:hover{background:rgba(255,50,50,.12);color:#ff7070}
+.no-items{text-align:center;padding:28px;color:rgba(255,255,255,.18);font-size:12px}
+
+/* bg-remove options */
+.bg-remove-opts{display:flex;gap:6px;margin-top:6px;align-items:center}
+.bg-remove-opts label{font-size:10px;color:rgba(255,255,255,.45)}
+.bg-remove-opts select{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:5px;padding:3px 7px;color:#fff;font-size:11px;cursor:pointer}
+.bg-remove-opts select:focus{outline:none;border-color:#c9a84c}
+.bg-remove-btn{background:rgba(201,168,76,.12);border:1px solid rgba(201,168,76,.3);color:#c9a84c;padding:3px 9px;border-radius:5px;cursor:pointer;font-size:10px;font-family:'Cairo',sans-serif;transition:all .2s;white-space:nowrap}
+.bg-remove-btn:hover{background:rgba(201,168,76,.22)}
+
+.infobox{margin-top:36px;background:rgba(201,168,76,.02);border:1px solid rgba(201,168,76,.1);border-radius:10px;padding:18px}
+.infobox h3{font-size:11px;color:#c9a84c;letter-spacing:2px;text-transform:uppercase;margin-bottom:11px;font-family:Arial}
+table{width:100%;border-collapse:collapse;font-size:11px;direction:ltr}
+th{padding:7px 11px;text-align:left;background:rgba(201,168,76,.07);color:#c9a84c;font-weight:700}
+td{padding:7px 11px;color:rgba(255,255,255,.48);border-bottom:1px solid rgba(255,255,255,.04)}
+.note{margin-top:9px;font-size:10px;color:rgba(255,255,255,.2);line-height:1.8}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div class="hdr-sub">Broadcast Poster Studio</div>
+  <h1>POSTER STUDIO</h1>
+  <p>ارفع Excel + البوسترات + اللوغوات — وتحصل على بوسترات JPG احترافية</p>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('t1')">🎬 إنشاء</div>
+  <div class="tab" onclick="switchTab('t2')">🖼 البوسترات</div>
+  <div class="tab" onclick="switchTab('t3')">📺 لوغو القناة</div>
+  <div class="tab" onclick="switchTab('t4')">🎭 لوغو التايتل</div>
+</div>
+
+<!-- TAB 1: GENERATOR -->
+<div id="t1" class="tabcontent active">
+<div class="main">
+  <div class="upzone" id="xlsZone">
+    <span class="ico">📊</span>
+    <h2>ارفع ملف Excel</h2>
+    <p>الأعمدة: <strong>Content Name</strong> · <strong>Channel Name</strong> · <strong>Air Time</strong></p>
+    <input type="file" id="xlsIn" accept=".xlsx,.xls" style="display:none"/>
+  </div>
+  <div id="xlsStatus" class="xls-status"></div>
+  <div style="background:rgba(201,168,76,.04);border:1px solid rgba(201,168,76,.12);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:11px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:8px;">
+    <span style="color:#c9a84c;font-size:14px;">🎬</span>
+    <span>البوسترات تُجلب تلقائياً من <strong style="color:#c9a84c">TMDB</strong> إذا لم تُرفع يدوياً</span>
+    <span id="tmdbStatus" style="margin-right:auto;font-size:10px;color:rgba(255,255,255,.3);">جاري التحقق...</span>
+  </div>
+  <button class="btn-gen" id="genBtn" disabled>🎬 ابدأ الإنشاء</button>
+  <div id="errbox" class="errbox"></div>
+  <div class="sp" id="sp">
+    <div class="sp-label" id="spLabel">جاري المعالجة...</div>
+    <div class="pgbg"><div class="pgfill" id="pgfill"></div></div>
+    <div class="pgitems" id="pgitems"></div>
+  </div>
+  <div id="resSection" style="display:none">
+    <div class="res-hdr">
+      <div class="res-count" id="resCount"></div>
+      <div class="res-actions">
+        <button class="btn-dl-all" id="dlAllBtn">📦 تحميل الكل ZIP</button>
+        <button class="btn-clr" id="clrBtn">✕ مسح الكل</button>
+      </div>
+    </div>
+    <div id="resCont"></div>
+  </div>
+  <div class="infobox">
+    <h3>تنسيق Excel</h3>
+    <table>
+      <thead><tr><th>Content Name</th><th>Channel Name</th><th>Air Time</th></tr></thead>
+      <tbody>
+        <tr><td>Interstellar</td><td>OSN Movies</td><td>09:30 PM</td></tr>
+        <tr><td>Breaking Bad</td><td>AMC</td><td>10:00 PM</td></tr>
+        <tr><td>لعبة العروش</td><td>OSN</td><td>08:30 PM</td></tr>
+      </tbody>
+    </table>
+    <p class="note">💡 اسم ملف البوستر يطابق اسم الكونتينت · مثال: <strong style="color:#c9a84c">Interstellar.jpg</strong><br>نفس الشيء للوغو التايتل · الأبعاد: 700×450 · الصيغة: JPG · الحجم: أقل من 1MB</p>
+  </div>
+</div>
+</div>
+
+<!-- TAB 2: POSTER LIBRARY -->
+<div id="t2" class="tabcontent">
+<div class="main">
+  <div class="lm-top">
+    <h2>🖼 مكتبة البوسترات</h2>
+    <button class="btn-add" onclick="document.getElementById('posterIn').click()">+ رفع بوسترات</button>
+    <input type="file" id="posterIn" accept="image/*" multiple style="display:none"/>
+  </div>
+  <div class="lib-info">
+    💡 اسم الملف لازم يطابق اسم الكونتينت في Excel<br>
+    مثال: <strong>Interstellar.jpg</strong> أو <strong>Breaking Bad.png</strong><br>
+    تقدر ترفع أكثر من بوستر بوقت واحد
+  </div>
+  <div class="poster-list" id="posterList"></div>
+  <div class="no-items" id="noPosters">لا توجد بوسترات — اضغط "رفع بوسترات"</div>
+</div>
+</div>
+
+<!-- TAB 3: CHANNEL LOGO -->
+<div id="t3" class="tabcontent">
+<div class="main">
+  <div class="lm-top">
+    <h2>📺 لوغوات القنوات</h2>
+    <button class="btn-add" onclick="toggleForm('chLogoForm')">+ إضافة لوغو</button>
+  </div>
+  <div class="add-form" id="chLogoForm">
+    <h3>إضافة لوغو قناة</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>اسم القناة (نفس Excel)</label>
+        <input type="text" id="chLogoName" placeholder="مثال: OSN أو MBC"/>
+      </div>
+      <div class="form-group" style="flex:0">
+        <label>الصورة</label>
+        <button class="upbtn" onclick="document.getElementById('chLogoFile').click()">📁 اختر</button>
+        <input type="file" id="chLogoFile" accept="image/*" style="display:none"/>
+      </div>
+      <button class="btn-save" onclick="saveLogo('ch')">حفظ ✓</button>
+    </div>
+    <div class="prev-wrap" id="chLogoPrev"><img id="chLogoPrevImg" src="" alt=""/><span id="chLogoPrevName">—</span></div>
+  </div>
+  <div class="logos-grid" id="chLogosGrid"></div>
+  <div class="no-items" id="noChLogos">لا توجد لوغوات قنوات</div>
+</div>
+</div>
+
+<!-- TAB 4: TITLE LOGO -->
+<div id="t4" class="tabcontent">
+<div class="main">
+  <div class="lm-top">
+    <h2>🎭 لوغوات التايتل</h2>
+    <button class="btn-add" onclick="document.getElementById('ttLogoIn').click()">+ رفع لوغوات</button>
+    <input type="file" id="ttLogoIn" accept="image/*" multiple style="display:none"/>
+  </div>
+  <div class="lib-info">
+    💡 اسم الملف لازم يطابق اسم الكونتينت في Excel<br>
+    مثال: <strong>Interstellar.png</strong> أو <strong>Breaking Bad.png</strong><br>
+    تقدر ترفع أكثر من لوغو بوقت واحد · <strong>يدعم إزالة الخلفية البيضاء أو السوداء تلقائياً</strong>
+  </div>
+  <div class="poster-list" id="ttLogoList"></div>
+  <div class="no-items" id="noTtLogos">لا توجد لوغوات تايتل — اضغط "رفع لوغوات"</div>
+</div>
+</div>
+
+<script>
+// ══ CONFIG ══════════════════════════════════════════
+const W=700, H=450;
+
+// ══ TABS ════════════════════════════════════════════
+function switchTab(id){
+  document.querySelectorAll('.tabcontent').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const idx={'t1':0,'t2':1,'t3':2,'t4':3}[id];
+  document.querySelectorAll('.tab')[idx].classList.add('active');
+}
+
+// ══ BG REMOVAL — flood fill from edges ═══════════════
+function removeBg(imgEl, bgColor, tolerance){
+  const oc=document.createElement('canvas');
+  oc.width=imgEl.naturalWidth; oc.height=imgEl.naturalHeight;
+  const octx=oc.getContext('2d');
+  octx.drawImage(imgEl,0,0);
+  const imgData=octx.getImageData(0,0,oc.width,oc.height);
+  const d=imgData.data;
+  const W2=oc.width, H2=oc.height;
+  const tgt=bgColor==='white'?[255,255,255]:[0,0,0];
+
+  // Mark pixels to remove using BFS flood fill from all 4 edges
+  const visited=new Uint8Array(W2*H2);
+  const queue=[];
+
+  function colorDiff(idx){
+    return Math.sqrt(
+      (d[idx]-tgt[0])**2+
+      (d[idx+1]-tgt[1])**2+
+      (d[idx+2]-tgt[2])**2
+    );
+  }
+
+  function enqueue(x,y){
+    if(x<0||y<0||x>=W2||y>=H2)return;
+    const i=y*W2+x;
+    if(visited[i])return;
+    const pi=i*4;
+    if(colorDiff(pi)>tolerance)return;
+    visited[i]=1;
+    queue.push(i);
+  }
+
+  // Seed from all border pixels
+  for(let x=0;x<W2;x++){enqueue(x,0);enqueue(x,H2-1);}
+  for(let y=0;y<H2;y++){enqueue(0,y);enqueue(W2-1,y);}
+
+  // BFS
+  let head=0;
+  while(head<queue.length){
+    const i=queue[head++];
+    const x=i%W2, y=Math.floor(i/W2);
+    enqueue(x+1,y);enqueue(x-1,y);
+    enqueue(x,y+1);enqueue(x,y-1);
+  }
+
+  // Make visited pixels transparent, add soft edge feathering
+  for(let y=0;y<H2;y++){
+    for(let x=0;x<W2;x++){
+      const i=y*W2+x;
+      const pi=i*4;
+      if(!visited[i])continue;
+      // soft feather: check if any neighbour is NOT visited (= logo edge)
+      const edgeNeighbour=
+        (x>0&&!visited[i-1])||
+        (x<W2-1&&!visited[i+1])||
+        (y>0&&!visited[i-W2])||
+        (y<H2-1&&!visited[i+W2]);
+      if(edgeNeighbour){
+        // blend: keep partial alpha for smoother edge
+        const dist=colorDiff(pi);
+        d[pi+3]=Math.round(Math.min(255, (dist/tolerance)*180));
+      } else {
+        d[pi+3]=0;
+      }
+    }
+  }
+
+  octx.putImageData(imgData,0,0);
+  return oc.toDataURL('image/png');
+}
+
+// ══ POSTER LIBRARY (session) ═════════════════════════
+const posterLib={};
+function normName(s){return(s||'').toLowerCase().trim().replace(/\.[^.]+$/,'');}
+function getPosterFor(n){
+  const k=normName(n);
+  for(const[name,v]of Object.entries(posterLib))if(normName(name)===k)return v;
+  return null;
+}
+function renderPosterList(){
+  const list=document.getElementById('posterList'),none=document.getElementById('noPosters');
+  list.innerHTML='';
+  const keys=Object.keys(posterLib);
+  none.style.display=keys.length?'none':'block';
+  keys.forEach(name=>{
+    const item=document.createElement('div');item.className='poster-item';
+    item.innerHTML=`<img class="poster-item-thumb" src="${posterLib[name]}" alt="${name}"/><div class="poster-item-name">${name}</div><div class="poster-item-del" onclick="delPoster('${name.replace(/'/g,"\\'")}')">✕</div>`;
+    list.appendChild(item);
+  });
+}
+function delPoster(n){delete posterLib[n];renderPosterList();}
+document.getElementById('posterIn').addEventListener('change',function(){
+  const files=Array.from(this.files);if(!files.length)return;
+  let done=0;
+  files.forEach(file=>{
+    const r=new FileReader();
+    r.onload=e=>{posterLib[file.name.replace(/\.[^.]+$/,'')]=e.target.result;done++;if(done===files.length)renderPosterList();};
+    r.readAsDataURL(file);
+  });
+  this.value='';
+});
+
+// ══ CHANNEL LOGO LIBRARY (localStorage) ══════════════
+const CH_KEY='ps_ch_logos_v1';
+function getLogos(k){try{return JSON.parse(localStorage.getItem(k))||{};}catch{return{};}}
+function setLogos(k,o){localStorage.setItem(k,JSON.stringify(o));}
+
+function getChLogoFor(name){
+  const logos=getLogos(CH_KEY),cn=(name||'').toLowerCase().trim();
+  for(const[k,v]of Object.entries(logos))if(k.toLowerCase().trim()===cn)return v;
+  for(const[k,v]of Object.entries(logos))if(cn.includes(k.toLowerCase().trim())||k.toLowerCase().trim().includes(cn))return v;
+  return null;
+}
+
+// Title logo: session-based with bg removal support
+const ttLogoLib={};
+function getTtLogoFor(name){
+  const cn=(name||'').toLowerCase().trim().replace(/\.[^.]+$/,'');
+  for(const[k,v]of Object.entries(ttLogoLib))if(k.toLowerCase().trim()===cn)return v;
+  for(const[k,v]of Object.entries(ttLogoLib))if(cn.includes(k.toLowerCase().trim())||k.toLowerCase().trim().includes(cn))return v;
+  return null;
+}
+
+function getLogoFor(lib,name){
+  if(lib===CH_KEY)return getChLogoFor(name);
+  return getTtLogoFor(name);
+}
+
+function toggleForm(id){const f=document.getElementById(id);f.style.display=f.style.display==='block'?'none':'block';}
+
+// Channel logo save
+window._logoData={ch:null};
+document.getElementById('chLogoFile').addEventListener('change',function(){
+  const file=this.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    document.getElementById('chLogoPrevImg').src=e.target.result;
+    document.getElementById('chLogoPrevName').textContent=file.name;
+    document.getElementById('chLogoPrev').style.display='flex';
+    window._logoData.ch=e.target.result;
+  };
+  r.readAsDataURL(file);
+});
+
+function saveLogo(type){
+  if(type!=='ch')return;
+  const nameEl=document.getElementById('chLogoName');
+  const name=nameEl.value.trim();
+  if(!name){alert('أدخل الاسم');return;}
+  if(!window._logoData.ch){alert('اختر صورة');return;}
+  const logos=getLogos(CH_KEY);logos[name]=window._logoData.ch;setLogos(CH_KEY,logos);
+  renderLogosGrid('ch');
+  nameEl.value='';
+  document.getElementById('chLogoFile').value='';
+  document.getElementById('chLogoPrev').style.display='none';
+  window._logoData.ch=null;
+  document.getElementById('chLogoForm').style.display='none';
+}
+function delLogo(type,name){
+  if(type==='ch'){const logos=getLogos(CH_KEY);delete logos[name];setLogos(CH_KEY,logos);renderLogosGrid('ch');}
+  else{delete ttLogoLib[name];renderTtLogoList();}
+}
+function renderLogosGrid(type){
+  if(type!=='ch')return;
+  const logos=getLogos(CH_KEY);
+  const grid=document.getElementById('chLogosGrid');
+  const none=document.getElementById('noChLogos');
+  grid.innerHTML='';
+  const keys=Object.keys(logos);
+  none.style.display=keys.length?'none':'block';
+  keys.forEach(name=>{
+    const c=document.createElement('div');c.className='logo-card';
+    c.innerHTML=`<img src="${logos[name]}" alt="${name}"/><div class="logo-card-name">${name}</div><div class="logo-card-del" onclick="delLogo('ch','${name.replace(/'/g,"\\'")}')">✕</div>`;
+    grid.appendChild(c);
+  });
+}
+renderLogosGrid('ch');
+
+// ══ MAGIC ERASER — click-based flood fill (alpha only) ════════════
+function magicErase(dataUrl, clickX, clickY, displayW, displayH, tolerance){
+  return new Promise(resolve=>{
+    const tmp=new Image();
+    tmp.onload=()=>{
+      const iw=tmp.naturalWidth, ih=tmp.naturalHeight;
+      const px=Math.max(0,Math.min(iw-1,Math.round(clickX*(iw/displayW))));
+      const py=Math.max(0,Math.min(ih-1,Math.round(clickY*(ih/displayH))));
+
+      const oc=document.createElement('canvas');
+      oc.width=iw;oc.height=ih;
+      const octx=oc.getContext('2d');
+      octx.drawImage(tmp,0,0);
+      const imgData=octx.getImageData(0,0,iw,ih);
+      const d=imgData.data;
+
+      // seed color at click point
+      const si=(py*iw+px)*4;
+      const sr=d[si],sg=d[si+1],sb=d[si+2];
+
+      function colorDiff(idx){
+        return Math.sqrt((d[idx]-sr)**2+(d[idx+1]-sg)**2+(d[idx+2]-sb)**2);
+      }
+
+      const visited=new Uint8Array(iw*ih);
+      const queue=[];
+
+      function enqueue(x,y){
+        if(x<0||y<0||x>=iw||y>=ih)return;
+        const i=y*iw+x;
+        if(visited[i])return;
+        if(colorDiff(i*4)>tolerance)return;
+        visited[i]=1;
+        queue.push(i);
+      }
+
+      enqueue(px,py);
+      let head=0;
+      while(head<queue.length){
+        const i=queue[head++];
+        const x=i%iw, y=Math.floor(i/iw);
+        enqueue(x+1,y);enqueue(x-1,y);
+        enqueue(x,y+1);enqueue(x,y-1);
+      }
+
+      // ONLY modify alpha — never touch R, G, B
+      for(let i=0;i<iw*ih;i++){
+        if(!visited[i])continue;
+        const pi=i*4;
+        const x=i%iw, y=Math.floor(i/iw);
+        // check if on edge of erased region
+        const onEdge=
+          (x>0&&!visited[i-1])||
+          (x<iw-1&&!visited[i+1])||
+          (y>0&&!visited[i-iw])||
+          (y<ih-1&&!visited[i+iw]);
+        if(onEdge){
+          // smooth edge: alpha proportional to how different from seed color
+          const dist=colorDiff(pi);
+          const ratio=Math.min(1, dist/tolerance);
+          // only reduce alpha, never increase — preserve existing alpha
+          d[pi+3]=Math.min(d[pi+3], Math.round(ratio*255));
+        } else {
+          d[pi+3]=0; // fully transparent, RGB untouched
+        }
+      }
+
+      octx.putImageData(imgData,0,0);
+      resolve(oc.toDataURL('image/png'));
+    };
+    tmp.src=dataUrl;
+  });
+}
+
+// open magic eraser modal
+function openMagicEraser(name){
+  // create overlay
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;';
+
+  const title=document.createElement('div');
+  title.style.cssText='color:#c9a84c;font-family:Cairo,sans-serif;font-size:13px;font-weight:700;';
+  title.textContent='🪄 انقر على الخلفية اللي تبي تشيلها — تقدر تنقر أكثر من مرة';
+
+  const hint=document.createElement('div');
+  hint.style.cssText='color:rgba(255,255,255,.45);font-family:Cairo,sans-serif;font-size:11px;';
+  hint.textContent='كل نقرة تشيل منطقة متصلة من نفس اللون';
+
+  // canvas display
+  const cnv=document.createElement('canvas');
+  cnv.style.cssText='max-width:90vw;max-height:65vh;cursor:crosshair;border:1px solid rgba(201,168,76,.3);border-radius:6px;background:repeating-conic-gradient(#333 0% 25%,#222 0% 50%) 0 0/16px 16px;';
+
+  // draw current image onto canvas
+  const tmp=new Image();
+  tmp.onload=()=>{
+    const maxW=Math.min(tmp.naturalWidth,900);
+    const scale=maxW/tmp.naturalWidth;
+    cnv.width=tmp.naturalWidth;
+    cnv.height=tmp.naturalHeight;
+    cnv.style.width=Math.round(tmp.naturalWidth*scale)+'px';
+    cnv.style.height=Math.round(tmp.naturalHeight*scale)+'px';
+    const ctx=cnv.getContext('2d');
+    ctx.drawImage(tmp,0,0);
+  };
+  tmp.src=ttLogoLib[name];
+
+  // tolerance slider
+  const sliderWrap=document.createElement('div');
+  sliderWrap.style.cssText='display:flex;align-items:center;gap:10px;color:rgba(255,255,255,.5);font-family:Cairo,sans-serif;font-size:11px;';
+  sliderWrap.innerHTML=`<label>حساسية:</label><input type="range" id="me_tol" min="5" max="120" value="40" style="accent-color:#c9a84c;width:140px;"><span id="me_tol_val">40</span>`;
+
+  // buttons row
+  const btnRow=document.createElement('div');
+  btnRow.style.cssText='display:flex;gap:10px;';
+
+  const undoBtn=document.createElement('button');
+  undoBtn.style.cssText='background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;padding:8px 18px;border-radius:7px;cursor:pointer;font-family:Cairo,sans-serif;font-size:12px;font-weight:700;';
+  undoBtn.textContent='↩ تراجع';
+
+  const doneBtn=document.createElement('button');
+  doneBtn.style.cssText='background:linear-gradient(135deg,#c9a84ccc,#c9a84c66);border:none;color:#fff;padding:8px 18px;border-radius:7px;cursor:pointer;font-family:Cairo,sans-serif;font-size:12px;font-weight:700;';
+  doneBtn.textContent='✓ حفظ';
+
+  const cancelBtn=document.createElement('button');
+  cancelBtn.style.cssText='background:rgba(255,50,50,.1);border:1px solid rgba(255,80,80,.2);color:#ff7070;padding:8px 18px;border-radius:7px;cursor:pointer;font-family:Cairo,sans-serif;font-size:12px;';
+  cancelBtn.textContent='✕ إلغاء';
+
+  btnRow.appendChild(undoBtn);
+  btnRow.appendChild(doneBtn);
+  btnRow.appendChild(cancelBtn);
+
+  overlay.appendChild(title);
+  overlay.appendChild(hint);
+  overlay.appendChild(cnv);
+  overlay.appendChild(sliderWrap);
+  overlay.appendChild(btnRow);
+  document.body.appendChild(overlay);
+
+  // tolerance display
+  const tolInput=overlay.querySelector('#me_tol');
+  const tolVal=overlay.querySelector('#me_tol_val');
+  tolInput.addEventListener('input',()=>{tolVal.textContent=tolInput.value;});
+
+  // history for undo
+  const history=[ttLogoLib[name]];
+
+  // click to erase
+  cnv.addEventListener('click',async(e)=>{
+    const rect=cnv.getBoundingClientRect();
+    const cx=e.clientX-rect.left;
+    const cy=e.clientY-rect.top;
+    const tol=+tolInput.value;
+    cnv.style.cursor='wait';
+    const result=await magicErase(ttLogoLib[name],cx,cy,rect.width,rect.height,tol);
+    history.push(result);
+    ttLogoLib[name]=result;
+    // redraw canvas
+    const img2=new Image();
+    img2.onload=()=>{
+      const ctx=cnv.getContext('2d');
+      ctx.clearRect(0,0,cnv.width,cnv.height);
+      ctx.drawImage(img2,0,0);
+      cnv.style.cursor='crosshair';
+    };
+    img2.src=result;
+  });
+
+  undoBtn.addEventListener('click',()=>{
+    if(history.length<=1)return;
+    history.pop();
+    ttLogoLib[name]=history[history.length-1];
+    const img2=new Image();
+    img2.onload=()=>{
+      const ctx=cnv.getContext('2d');
+      ctx.clearRect(0,0,cnv.width,cnv.height);
+      ctx.drawImage(img2,0,0);
+    };
+    img2.src=ttLogoLib[name];
+  });
+
+  doneBtn.addEventListener('click',()=>{
+    document.body.removeChild(overlay);
+    renderTtLogoList();
+  });
+
+  cancelBtn.addEventListener('click',()=>{
+    ttLogoLib[name]=history[0]; // restore original
+    document.body.removeChild(overlay);
+  });
+}
+
+// Title logo list
+function renderTtLogoList(){
+  const list=document.getElementById('ttLogoList'),none=document.getElementById('noTtLogos');
+  list.innerHTML='';
+  const keys=Object.keys(ttLogoLib);
+  none.style.display=keys.length?'none':'block';
+  keys.forEach(name=>{
+    const item=document.createElement('div');item.className='poster-item';
+    const safeN=name.replace(/'/g,"\\'");
+    item.innerHTML=`
+      <img class="poster-item-thumb" src="${ttLogoLib[name]}" alt="${name}" style="background:repeating-conic-gradient(#444 0% 25%,#333 0% 50%) 0 0/8px 8px;"/>
+      <div class="poster-item-name">${name}</div>
+      <button class="bg-remove-btn" onclick="openMagicEraser('${safeN}')">🪄 تفريغ</button>
+      <div class="poster-item-del" onclick="delLogo('tt','${safeN}')">✕</div>
+    `;
+    list.appendChild(item);
+  });
+}
+
+document.getElementById('ttLogoIn').addEventListener('change',function(){
+  const files=Array.from(this.files);if(!files.length)return;
+  let done=0;
+  files.forEach(file=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      ttLogoLib[file.name.replace(/\.[^.]+$/,'')]=e.target.result;
+      done++;if(done===files.length)renderTtLogoList();
+    };
+    r.readAsDataURL(file);
+  });
+  this.value='';
+});
+
+// ══ TMDB STATUS CHECK ═════════════════════════════════
+(async()=>{
+  try{
+    const r=await fetch(`https://api.themoviedb.org/3/configuration?api_key=${TMDB_KEY}`);
+    const d=await r.json();
+    const el=document.getElementById('tmdbStatus');
+    if(d.images){el.textContent='✅ TMDB متصل';el.style.color='rgba(100,200,100,.7)';}
+    else{el.textContent='⚠️ TMDB خطأ';el.style.color='rgba(255,150,50,.7)';}
+  }catch(e){
+    const el=document.getElementById('tmdbStatus');
+    if(el){el.textContent='⚠️ تعذر الاتصال بـ TMDB';el.style.color='rgba(255,150,50,.7)';}
+  }
+})();
+
+// ══ EXCEL ════════════════════════════════════════════
+let xlsRows=[];
+function fixTime(v){
+  if(!v&&v!==0)return'';
+  if(typeof v==='string'){if(v.match(/\d+:\d+/))return v.toUpperCase();return v;}
+  if(typeof v==='number'&&v>0&&v<1){
+    const m=Math.round(v*1440),h=Math.floor(m/60)%24,mn=m%60,ap=h>=12?'PM':'AM',h12=h%12||12;
+    return`${String(h12).padStart(2,'0')}:${String(mn).padStart(2,'0')} ${ap}`;
+  }
+  return String(v);
+}
+document.getElementById('xlsZone').addEventListener('click',()=>document.getElementById('xlsIn').click());
+['dragover','dragleave','drop'].forEach(ev=>{
+  document.getElementById('xlsZone').addEventListener(ev,e=>{
+    e.preventDefault();
+    if(ev==='dragover')document.getElementById('xlsZone').classList.add('drag');
+    else document.getElementById('xlsZone').classList.remove('drag');
+    if(ev==='drop'&&e.dataTransfer.files[0]){document.getElementById('xlsIn').files=e.dataTransfer.files;document.getElementById('xlsIn').dispatchEvent(new Event('change'));}
+  });
+});
+document.getElementById('xlsIn').addEventListener('change',function(){
+  const file=this.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'binary'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const data=XLSX.utils.sheet_to_json(ws,{raw:true});
+      if(!data.length)throw new Error('الملف فارغ');
+      const get=(row,pats)=>{const k=Object.keys(row).find(k=>pats.some(p=>k.toLowerCase().includes(p.toLowerCase())));return k?row[k]:'';};
+      xlsRows=data.map((row,i)=>({
+        content:String(get(row,['content','اسم المحتوى','show','name','title','برنامج','اسم'])||`Show ${i+1}`).trim(),
+        channel:String(get(row,['channel','قناة','القناة','station'])||'Channel').trim(),
+        time:fixTime(get(row,['time','وقت','الوقت','air'])||'09:00 PM'),
+      }));
+      const s=document.getElementById('xlsStatus');
+      s.textContent=`✓ تم تحميل ${xlsRows.length} سطر`;s.style.display='block';
+      document.getElementById('genBtn').disabled=false;
+    }catch(e){document.getElementById('errbox').textContent='⚠️ '+e.message;document.getElementById('errbox').style.display='block';}
+  };
+  r.readAsBinaryString(file);
+});
+
+// ══ LOAD IMAGE ═══════════════════════════════════════
+function loadImg(src){
+  return new Promise(res=>{
+    if(!src)return res(null);
+    const img=new Image();
+    img.onload=()=>res(img);img.onerror=()=>res(null);img.src=src;
+    setTimeout(()=>res(null),8000);
+  });
+}
+
+// ══ DRAW ══════════════════════════════════════════════
+function drawPoster(canvas, posterImg, chLogoImg, ttLogoImg, time, cfg){
+  const S=2;
+  canvas.width=W*S;canvas.height=H*S;
+  const ctx=canvas.getContext('2d');
+
+  // 1. BG
+  ctx.fillStyle='#000';ctx.fillRect(0,0,W*S,H*S);
+  if(posterImg){
+    ctx.drawImage(posterImg,0,0,W*S,H*S);
+  }else{
+    const grd=ctx.createLinearGradient(0,0,W*S,H*S);
+    grd.addColorStop(0,'#0d0d2e');grd.addColorStop(.5,'#1a1050');grd.addColorStop(1,'#0d1a10');
+    ctx.fillStyle=grd;ctx.fillRect(0,0,W*S,H*S);
+  }
+
+  // Helper: draw image with optional shadow + shadow color
+  function drawWithShadow(img,x,y,w,h,shadow,shadowCol){
+    ctx.save();
+    if(shadow){
+      ctx.shadowColor=shadowCol==='white'?'rgba(255,255,255,0.85)':'rgba(0,0,0,0.85)';
+      ctx.shadowBlur=18*S;ctx.shadowOffsetX=2*S;ctx.shadowOffsetY=2*S;
+    }
+    ctx.drawImage(img,x*S,y*S,w*S,h*S);
+    ctx.restore();
+  }
+
+  // 2. Channel logo
+  if(chLogoImg){
+    const lh=cfg.chSize;
+    const lw=Math.min(chLogoImg.naturalWidth*(lh/chLogoImg.naturalHeight),240);
+    const lx=cfg.chX-lw/2;
+    const ly=cfg.chY-lh/2;
+    drawWithShadow(chLogoImg,lx,ly,lw,lh,cfg.chShadow,cfg.chShadowColor);
+  }
+
+  // 3. Title: logo or text
+  if(cfg.ttMode==='logo'){
+    if(ttLogoImg){
+      const lh=cfg.ttSize;
+      const lw=Math.min(ttLogoImg.naturalWidth*(lh/ttLogoImg.naturalHeight),240);
+      const lx=cfg.ttX-lw/2;
+      const ly=cfg.ttY-lh/2;
+      drawWithShadow(ttLogoImg,lx,ly,lw,lh,cfg.ttShadow,cfg.ttShadowColor);
+    }
+  } else {
+    // text mode
+    ctx.save();
+    const fontSize=cfg.ttTextSize*S;
+    ctx.font=`900 ${fontSize}px '${cfg.ttFont}',Impact,sans-serif`;
+    ctx.fillStyle=cfg.ttTextColor;
+    ctx.textBaseline='middle';
+    ctx.textAlign='center';
+    ctx.direction='ltr';
+    if(cfg.ttShadow){
+      ctx.shadowColor=cfg.ttShadowColor==='white'?'rgba(255,255,255,0.85)':'rgba(0,0,0,0.9)';
+      ctx.shadowBlur=12*S;
+    }
+    ctx.fillText(cfg.ttCustomText||cfg.ttDefaultText,cfg.ttX*S,cfg.ttY*S);
+    ctx.restore();
+  }
+
+  // 4. Time
+  ctx.save();
+  ctx.font=`900 ${cfg.timeSize*S}px 'Bebas Neue',Impact,sans-serif`;
+  ctx.fillStyle=cfg.timeColor;
+  ctx.textBaseline='middle';
+  ctx.textAlign='center';
+  ctx.direction='ltr';
+  if(cfg.timeShadow){
+    ctx.shadowColor=cfg.timeShadowColor==='white'?'rgba(255,255,255,0.85)':'rgba(0,0,0,0.9)';
+    ctx.shadowBlur=12*S;
+  }
+  ctx.fillText(time,cfg.timeX*S,cfg.timeY*S);
+  ctx.restore();
+}
+
+// ══ DEFAULT CONFIG ════════════════════════════════════
+function defaultCfg(contentName){
+  return{
+    // Channel logo
+    chX: 589, chY: 95, chSize: 200, chShadow: false, chShadowColor:'black',
+    // Title logo / text
+    ttX: 581, ttY: 265, ttSize: 1000, ttShadow: false, ttShadowColor:'black',
+    ttMode: 'logo', // 'logo' | 'text'
+    ttTextSize: 40,
+    ttTextColor: '#ffffff',
+    ttFont: 'Bebas Neue',
+    ttCustomText: '',
+    ttDefaultText: contentName||'',
+    // Time
+    timeX: 584, timeY: 334, timeSize: 40, timeColor:'#ffffff', timeShadow: false, timeShadowColor:'black',
+  };
+}
+
+// ══ ARABIC SOURCES (via Vercel API) ══════════════════
+async function fetchArabicPoster(title, source){
+  try{
+    const q=encodeURIComponent(title);
+    const r=await fetch(`/api/poster?title=${q}&source=${source}`);
+    const d=await r.json();
+    if(d.found && d.dataUrl) return d.dataUrl;
+    return null;
+  }catch(e){return null;}
+}
+
+// ══ TMDB ═════════════════════════════════════════════
+const TMDB_KEY='efef2b916f7e7c557a2528095210d8a6';
+const TMDB_IMG='https://image.tmdb.org/t/p/w500';
+
+async function fetchTmdbPoster(title, skipCount=0){
+  try{
+    const q=encodeURIComponent(title);
+    // search Arabic first then English
+    const [mRes,tRes,mRes2,tRes2]=await Promise.all([
+      fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${q}&language=ar`),
+      fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${q}&language=ar`),
+      fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${q}`),
+      fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${q}`)
+    ]);
+    const [mData,tData,mData2,tData2]=await Promise.all([mRes.json(),tRes.json(),mRes2.json(),tRes2.json()]);
+
+    // collect unique IDs with type
+    const seen=new Set();
+    const candidates=[];
+    for(const[type,data] of [['movie',mData],['tv',tData],['movie',mData2],['tv',tData2]]){
+      for(const r of (data.results||[])){
+        if(!seen.has(r.id)){seen.add(r.id);candidates.push({id:r.id,type});}
+      }
+    }
+    if(!candidates.length)return null;
+
+    // pick candidate by skipCount, then fetch all its posters
+    const pick=candidates[skipCount % candidates.length];
+
+    // get all posters for this item
+    const imgRes=await fetch(`https://api.themoviedb.org/3/${pick.type}/${pick.id}/images?api_key=${TMDB_KEY}`);
+    const imgData=await imgRes.json();
+    const posters=[...(imgData.posters||[])];
+    if(!posters.length)return null;
+
+    // cycle through posters using skipCount
+    const poster=posters[Math.floor(skipCount/candidates.length) % posters.length];
+    if(!poster?.file_path)return null;
+
+    const imgFetch=await fetch(TMDB_IMG+poster.file_path);
+    const blob=await imgFetch.blob();
+    return new Promise(res=>{
+      const r=new FileReader();
+      r.onload=e=>res(e.target.result);
+      r.readAsDataURL(blob);
+    });
+  }catch(e){
+    return null;
+  }
+}
+
+// ══ ALL CANVASES registry for download-all ════════════
+const allPosters=[];
+
+// ══ BUILD ONE POSTER ══════════════════════════════════
+async function buildOne(content, channel, time, idx){
+  let posterDataUrl=getPosterFor(content);
+
+  // try Arabic sources first, then TMDB
+  if(!posterDataUrl){
+    posterDataUrl = await fetchArabicPoster(content, 'shahid');
+  }
+  if(!posterDataUrl){
+    posterDataUrl = await fetchArabicPoster(content, 'osn');
+  }
+  if(!posterDataUrl){
+    posterDataUrl = await fetchArabicPoster(content, 'watchit');
+  }
+  if(!posterDataUrl){
+    posterDataUrl=await fetchTmdbPoster(content,0);
+  }
+
+  const chLogoDataUrl=getLogoFor(CH_KEY,channel);
+  const ttLogoDataUrl=getTtLogoFor(content);
+
+  let[posterImg,chLogoImg,ttLogoImg]=await Promise.all([
+    loadImg(posterDataUrl),loadImg(chLogoDataUrl),loadImg(ttLogoDataUrl)
+  ]);
+
+  const cfg=defaultCfg(content);
+  const wrap=document.createElement('div');wrap.className='pwrap';wrap.style.animationDelay=`${idx*0.05}s`;
+
+  const canvasWrap=document.createElement('div');
+  canvasWrap.style.cssText='position:relative;display:inline-block;cursor:default;';
+
+  const canvas=document.createElement('canvas');canvas.className='pcv';
+  canvas.style.display='block';
+  canvasWrap.appendChild(canvas);
+
+  const dragHint=document.createElement('div');
+  dragHint.style.cssText='position:absolute;bottom:6px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.55);color:rgba(255,255,255,.5);font-size:10px;padding:3px 9px;border-radius:99px;pointer-events:none;font-family:Cairo,sans-serif;white-space:nowrap;';
+  dragHint.textContent='✋ اسحب اللوغوات والوقت مباشرة على البوستر';
+  canvasWrap.appendChild(dragHint);
+
+  function redraw(){drawPoster(canvas,posterImg,chLogoImg,ttLogoImg,time,cfg);}
+  redraw();
+
+  // register for download-all
+  allPosters.push({canvas, content});
+
+  // ── Drag & Drop ──────────────────────────
+  const S=2;
+  let dragging=null;
+  let dragOffX=0,dragOffY=0;
+
+  function getCanvasPos(e){
+    const rect=canvas.getBoundingClientRect();
+    const scaleX=W/rect.width, scaleY=H/rect.height;
+    const clientX=e.touches?e.touches[0].clientX:e.clientX;
+    const clientY=e.touches?e.touches[0].clientY:e.clientY;
+    return{x:(clientX-rect.left)*scaleX, y:(clientY-rect.top)*scaleY};
+  }
+
+  function hitTest(pos){
+    if(chLogoImg){
+      const lh=cfg.chSize;
+      const lw=Math.min(chLogoImg.naturalWidth*(lh/chLogoImg.naturalHeight),240);
+      if(Math.abs(pos.x-cfg.chX)<lw/2+10&&Math.abs(pos.y-cfg.chY)<lh/2+10)return'ch';
+    }
+    if(cfg.ttMode==='logo'&&ttLogoImg){
+      const lh=cfg.ttSize;
+      const lw=Math.min(ttLogoImg.naturalWidth*(lh/ttLogoImg.naturalHeight),240);
+      if(Math.abs(pos.x-cfg.ttX)<lw/2+10&&Math.abs(pos.y-cfg.ttY)<lh/2+10)return'tt';
+    } else if(cfg.ttMode==='text'){
+      const fs=cfg.ttTextSize;
+      const tw=(cfg.ttCustomText||cfg.ttDefaultText).length*fs*0.55;
+      if(Math.abs(pos.x-cfg.ttX)<tw/2+10&&Math.abs(pos.y-cfg.ttY)<fs/2+10)return'tt';
+    }
+    const fs=cfg.timeSize;
+    const tw=time.length*fs*0.55;
+    if(Math.abs(pos.x-cfg.timeX)<tw/2+10&&Math.abs(pos.y-cfg.timeY)<fs/2+10)return'time';
+    return null;
+  }
+
+  function onPointerDown(e){
+    const pos=getCanvasPos(e);
+    const hit=hitTest(pos);
+    if(!hit)return;
+    e.preventDefault();
+    dragging=hit;
+    if(hit==='ch'){dragOffX=pos.x-cfg.chX;dragOffY=pos.y-cfg.chY;}
+    else if(hit==='tt'){dragOffX=pos.x-cfg.ttX;dragOffY=pos.y-cfg.ttY;}
+    else{dragOffX=pos.x-cfg.timeX;dragOffY=pos.y-cfg.timeY;}
+    canvas.style.cursor='grabbing';
+    dragHint.style.opacity='0';
+  }
+
+  function onPointerMove(e){
+    if(!dragging){
+      const pos=getCanvasPos(e);
+      canvas.style.cursor=hitTest(pos)?'grab':'default';
+      return;
+    }
+    e.preventDefault();
+    const pos=getCanvasPos(e);
+    const nx=Math.round(pos.x-dragOffX);
+    const ny=Math.round(pos.y-dragOffY);
+    if(dragging==='ch'){cfg.chX=nx;cfg.chY=ny;}
+    else if(dragging==='tt'){cfg.ttX=nx;cfg.ttY=ny;}
+    else{cfg.timeX=nx;cfg.timeY=ny;}
+    redraw();
+    syncPanelInputs();
+  }
+
+  function onPointerUp(){
+    if(dragging){dragging=null;canvas.style.cursor='default';}
+  }
+
+  canvas.addEventListener('mousedown',onPointerDown);
+  canvas.addEventListener('mousemove',onPointerMove);
+  window.addEventListener('mouseup',onPointerUp);
+  canvas.addEventListener('touchstart',onPointerDown,{passive:false});
+  canvas.addEventListener('touchmove',onPointerMove,{passive:false});
+  window.addEventListener('touchend',onPointerUp);
+
+  // ── ACTION BUTTONS ────────────────────────────────
+  const actions=document.createElement('div');actions.className='pactions';
+
+  const dlBtn=document.createElement('button');dlBtn.className='btn-dl';
+  dlBtn.style.background='linear-gradient(135deg,#c9a84ccc,#c9a84c66)';
+  dlBtn.innerHTML='⬇ تحميل JPG';
+  dlBtn.addEventListener('click',()=>{
+    const orig=dlBtn.innerHTML;dlBtn.innerHTML='⏳...';dlBtn.disabled=true;
+    const out=document.createElement('canvas');
+    out.width=W;out.height=H;
+    const ctx=out.getContext('2d');
+    ctx.imageSmoothingEnabled=true;
+    ctx.imageSmoothingQuality='high';
+    ctx.drawImage(canvas,0,0,canvas.width,canvas.height,0,0,W,H);
+    const a=document.createElement('a');
+    a.download=`${content.replace(/\s+/g,'_')}_poster.jpg`;
+    a.href=out.toDataURL('image/jpeg',0.95);
+    a.click();dlBtn.innerHTML=orig;dlBtn.disabled=false;
+  });
+
+  // refresh poster button — cycles through all sources
+  let tmdbSkip=0;
+  const sources=['shahid','osn','watchit','tmdb'];
+  let sourceIdx=0;
+  const refreshBtn=document.createElement('button');refreshBtn.className='btn-edit';
+  refreshBtn.innerHTML='🔄 بوستر ثاني';
+  refreshBtn.title='جيب بوستر مختلف';
+  refreshBtn.addEventListener('click',async()=>{
+    const orig=refreshBtn.innerHTML;
+    refreshBtn.innerHTML='⏳...';refreshBtn.disabled=true;
+    let newUrl=null;
+    // try next source
+    for(let attempts=0;attempts<sources.length;attempts++){
+      sourceIdx=(sourceIdx+1)%sources.length;
+      const src=sources[sourceIdx];
+      if(src==='tmdb'){
+        tmdbSkip++;
+        newUrl=await fetchTmdbPoster(content,tmdbSkip);
+      } else {
+        newUrl=await fetchArabicPoster(content,src);
+      }
+      if(newUrl)break;
+    }
+    if(newUrl){
+      const newImg=await loadImg(newUrl);
+      if(newImg){posterImg=newImg;redraw();}
+    } else {
+      refreshBtn.innerHTML='⚠️ ما في غيره';
+      setTimeout(()=>{refreshBtn.innerHTML=orig;refreshBtn.disabled=false;},1500);
+      return;
+    }
+    refreshBtn.innerHTML=orig;refreshBtn.disabled=false;
+  });
+
+  const editBtn=document.createElement('button');editBtn.className='btn-edit';
+  editBtn.innerHTML='⚙️ خيارات';
+
+  actions.appendChild(dlBtn);actions.appendChild(refreshBtn);actions.appendChild(editBtn);
+  wrap.appendChild(canvasWrap);wrap.appendChild(actions);
+
+  // ── EDIT PANEL ────────────────────────────────────
+  let panelEl=null;
+  function syncPanelInputs(){
+    if(!panelEl||panelEl.style.display!=='block')return;
+    ['chX','chY','ttX','ttY','timeX','timeY'].forEach(k=>{
+      const el=panelEl.querySelector(`#ep_${k}`);
+      if(el)el.value=cfg[k];
+    });
+  }
+
+  panelEl=buildEditPanel(cfg,redraw,syncPanelInputs,content);
+  editBtn.addEventListener('click',()=>{
+    panelEl.style.display=panelEl.style.display==='block'?'none':'block';
+    if(panelEl.style.display==='block')syncPanelInputs();
+  });
+  wrap.appendChild(panelEl);
+
+  return{wrap,hasPoster:!!posterImg,hasCh:!!chLogoImg,hasTt:!!ttLogoImg};
+}
+
+// ══ EDIT PANEL ════════════════════════════════════════
+function buildEditPanel(cfg, redraw, syncInputs, contentName){
+  const panel=document.createElement('div');panel.className='edit-panel';
+
+  panel.innerHTML=`
+    <h4>⚙️ إعدادات البوستر</h4>
+    <div style="background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.18);border-radius:8px;padding:9px 13px;margin-bottom:14px;font-size:11px;color:rgba(255,255,255,.5);line-height:1.8;">
+      ✋ <strong style="color:#c9a84c">السحب والإفلات مفعّل</strong> — اسحب اللوغوات والوقت مباشرة على البوستر لتغيير مواضعها
+    </div>
+    <div class="edit-grid">
+
+      <!-- Channel Logo -->
+      <div class="edit-col">
+        <div class="edit-col-title">📺 لوغو القناة</div>
+        <div class="edit-row"><label>X</label><input type="number" id="ep_chX" value="${cfg.chX}" min="0" max="${W}"/></div>
+        <div class="edit-row"><label>Y</label><input type="number" id="ep_chY" value="${cfg.chY}" min="0" max="${H}"/></div>
+        <div class="edit-row"><label>حجم</label><input type="number" id="ep_chSize" value="${cfg.chSize}" min="20" max="500"/></div>
+        <div class="shadow-row">
+          <label>ظل</label>
+          <div class="toggle ${cfg.chShadow?'on':''}" id="ep_chShadow"></div>
+          <div class="color-btns" id="ep_chShadowColorWrap">
+            <div class="cbtn ${cfg.chShadowColor==='black'?'active':''}" id="ep_chShadowB" style="background:#000;color:#fff" title="أسود">A</div>
+            <div class="cbtn ${cfg.chShadowColor==='white'?'active':''}" id="ep_chShadowW" style="background:#fff;color:#000" title="أبيض">A</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Title -->
+      <div class="edit-col">
+        <div class="edit-col-title">🎭 التايتل</div>
+        <div class="mode-btns">
+          <div class="mbtn ${cfg.ttMode==='logo'?'active':''}" id="ep_modeLogo">🖼 لوغو</div>
+          <div class="mbtn ${cfg.ttMode==='text'?'active':''}" id="ep_modeText">✏️ كتابة</div>
+        </div>
+        <div class="edit-row"><label>X</label><input type="number" id="ep_ttX" value="${cfg.ttX}" min="0" max="${W}"/></div>
+        <div class="edit-row"><label>Y</label><input type="number" id="ep_ttY" value="${cfg.ttY}" min="0" max="${H}"/></div>
+        <div id="ep_ttLogoSection">
+          <div class="edit-row"><label>حجم</label><input type="number" id="ep_ttSize" value="${cfg.ttSize}" min="20" max="1200"/></div>
+        </div>
+        <div id="ep_ttTextSection" style="display:none">
+          <div class="edit-row"><label>نص</label><input type="text" id="ep_ttText" value="${cfg.ttCustomText||contentName||''}"/></div>
+          <div class="edit-row"><label>حجم</label><input type="number" id="ep_ttTextSize" value="${cfg.ttTextSize}" min="10" max="200"/></div>
+          <select class="font-sel" id="ep_ttFont">
+            <option value="Bebas Neue" ${cfg.ttFont==='Bebas Neue'?'selected':''}>Bebas Neue</option>
+            <option value="Cairo" ${cfg.ttFont==='Cairo'?'selected':''}>Cairo</option>
+            <option value="Impact" ${cfg.ttFont==='Impact'?'selected':''}>Impact</option>
+            <option value="Arial" ${cfg.ttFont==='Arial'?'selected':''}>Arial</option>
+          </select>
+          <div class="shadow-row"><label>لون نص</label>
+            <div class="color-btns">
+              <div class="cbtn ${cfg.ttTextColor==='#ffffff'?'active':''}" id="ep_ttTextW" style="background:#fff;color:#000">A</div>
+              <div class="cbtn ${cfg.ttTextColor==='#000000'?'active':''}" id="ep_ttTextB" style="background:#000;color:#fff">A</div>
+            </div>
+          </div>
+        </div>
+        <div class="shadow-row">
+          <label>ظل</label>
+          <div class="toggle ${cfg.ttShadow?'on':''}" id="ep_ttShadow"></div>
+          <div class="color-btns">
+            <div class="cbtn ${cfg.ttShadowColor==='black'?'active':''}" id="ep_ttShadowB" style="background:#000;color:#fff" title="أسود">A</div>
+            <div class="cbtn ${cfg.ttShadowColor==='white'?'active':''}" id="ep_ttShadowW" style="background:#fff;color:#000" title="أبيض">A</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Time -->
+      <div class="edit-col">
+        <div class="edit-col-title">🕐 الوقت</div>
+        <div class="edit-row"><label>X</label><input type="number" id="ep_timeX" value="${cfg.timeX}" min="0" max="${W}"/></div>
+        <div class="edit-row"><label>Y</label><input type="number" id="ep_timeY" value="${cfg.timeY}" min="0" max="${H}"/></div>
+        <div class="edit-row"><label>حجم</label><input type="number" id="ep_timeSize" value="${cfg.timeSize}" min="10" max="120"/></div>
+        <div class="shadow-row"><label>لون</label>
+          <div class="color-btns">
+            <div class="cbtn ${cfg.timeColor==='#ffffff'?'active':''}" id="ep_colorW" style="background:#fff;color:#000">A</div>
+            <div class="cbtn ${cfg.timeColor==='#000000'?'active':''}" id="ep_colorB" style="background:#000;color:#fff">A</div>
+          </div>
+        </div>
+        <div class="shadow-row">
+          <label>ظل</label>
+          <div class="toggle ${cfg.timeShadow?'on':''}" id="ep_timeShadow"></div>
+          <div class="color-btns">
+            <div class="cbtn ${cfg.timeShadowColor==='black'?'active':''}" id="ep_timeShadowB" style="background:#000;color:#fff" title="أسود">A</div>
+            <div class="cbtn ${cfg.timeShadowColor==='white'?'active':''}" id="ep_timeShadowW" style="background:#fff;color:#000" title="أبيض">A</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  `;
+
+  // ── helper: read all cfg from panel and redraw ──
+  function syncCfgAndDraw(){
+    cfg.chX   =+panel.querySelector('#ep_chX').value;
+    cfg.chY   =+panel.querySelector('#ep_chY').value;
+    cfg.chSize=+panel.querySelector('#ep_chSize').value;
+    cfg.chShadow=panel.querySelector('#ep_chShadow').classList.contains('on');
+    cfg.chShadowColor=panel.querySelector('#ep_chShadowW').classList.contains('active')?'white':'black';
+
+    cfg.ttX   =+panel.querySelector('#ep_ttX').value;
+    cfg.ttY   =+panel.querySelector('#ep_ttY').value;
+    cfg.ttSize=+panel.querySelector('#ep_ttSize').value;
+    cfg.ttShadow=panel.querySelector('#ep_ttShadow').classList.contains('on');
+    cfg.ttShadowColor=panel.querySelector('#ep_ttShadowW').classList.contains('active')?'white':'black';
+    cfg.ttCustomText=panel.querySelector('#ep_ttText').value;
+    cfg.ttTextSize=+panel.querySelector('#ep_ttTextSize').value;
+    cfg.ttFont=panel.querySelector('#ep_ttFont').value;
+    cfg.ttTextColor=panel.querySelector('#ep_ttTextB').classList.contains('active')?'#000000':'#ffffff';
+
+    cfg.timeX  =+panel.querySelector('#ep_timeX').value;
+    cfg.timeY  =+panel.querySelector('#ep_timeY').value;
+    cfg.timeSize=+panel.querySelector('#ep_timeSize').value;
+    cfg.timeColor=panel.querySelector('#ep_colorB').classList.contains('active')?'#000000':'#ffffff';
+    cfg.timeShadow=panel.querySelector('#ep_timeShadow').classList.contains('on');
+    cfg.timeShadowColor=panel.querySelector('#ep_timeShadowW').classList.contains('active')?'white':'black';
+    redraw();
+  }
+
+  // Toggles — live
+  ['ep_chShadow','ep_ttShadow','ep_timeShadow'].forEach(id=>{
+    const el=panel.querySelector(`#${id}`);
+    el.addEventListener('click',()=>{el.classList.toggle('on');syncCfgAndDraw();});
+  });
+
+  // Shadow color pairs — live
+  function makeShadowColorPair(bId, wId){
+    const bEl=panel.querySelector(`#${bId}`);
+    const wEl=panel.querySelector(`#${wId}`);
+    bEl.addEventListener('click',()=>{bEl.classList.add('active');wEl.classList.remove('active');syncCfgAndDraw();});
+    wEl.addEventListener('click',()=>{wEl.classList.add('active');bEl.classList.remove('active');syncCfgAndDraw();});
+  }
+  makeShadowColorPair('ep_chShadowB','ep_chShadowW');
+  makeShadowColorPair('ep_ttShadowB','ep_ttShadowW');
+  makeShadowColorPair('ep_timeShadowB','ep_timeShadowW');
+
+  // Text color for time — live
+  panel.querySelector('#ep_colorW').addEventListener('click',()=>{
+    panel.querySelector('#ep_colorW').classList.add('active');
+    panel.querySelector('#ep_colorB').classList.remove('active');
+    syncCfgAndDraw();
+  });
+  panel.querySelector('#ep_colorB').addEventListener('click',()=>{
+    panel.querySelector('#ep_colorB').classList.add('active');
+    panel.querySelector('#ep_colorW').classList.remove('active');
+    syncCfgAndDraw();
+  });
+
+  // Text color for title — live
+  panel.querySelector('#ep_ttTextW').addEventListener('click',()=>{
+    panel.querySelector('#ep_ttTextW').classList.add('active');
+    panel.querySelector('#ep_ttTextB').classList.remove('active');
+    syncCfgAndDraw();
+  });
+  panel.querySelector('#ep_ttTextB').addEventListener('click',()=>{
+    panel.querySelector('#ep_ttTextB').classList.add('active');
+    panel.querySelector('#ep_ttTextW').classList.remove('active');
+    syncCfgAndDraw();
+  });
+
+  // Title mode toggle — live
+  const modeLogoBtn=panel.querySelector('#ep_modeLogo');
+  const modeTextBtn=panel.querySelector('#ep_modeText');
+  const logoSection=panel.querySelector('#ep_ttLogoSection');
+  const textSection=panel.querySelector('#ep_ttTextSection');
+
+  function switchMode(m){
+    cfg.ttMode=m;
+    if(m==='logo'){
+      modeLogoBtn.classList.add('active');modeTextBtn.classList.remove('active');
+      logoSection.style.display='';textSection.style.display='none';
+    }else{
+      modeTextBtn.classList.add('active');modeLogoBtn.classList.remove('active');
+      logoSection.style.display='none';textSection.style.display='';
+    }
+    syncCfgAndDraw();
+  }
+  if(cfg.ttMode==='text'){switchMode('text');}
+  modeLogoBtn.addEventListener('click',()=>switchMode('logo'));
+  modeTextBtn.addEventListener('click',()=>switchMode('text'));
+
+  // All number/text inputs — live
+  ['chX','chY','chSize','ttX','ttY','ttSize','timeX','timeY','timeSize'].forEach(k=>{
+    const el=panel.querySelector(`#ep_${k}`);
+    if(el)el.addEventListener('input',syncCfgAndDraw);
+  });
+  panel.querySelector('#ep_ttText').addEventListener('input',syncCfgAndDraw);
+  panel.querySelector('#ep_ttTextSize').addEventListener('input',syncCfgAndDraw);
+  panel.querySelector('#ep_ttFont').addEventListener('change',syncCfgAndDraw);
+
+  return panel;
+}
+
+// ══ PROGRESS ═════════════════════════════════════════
+function showSP(t){document.getElementById('sp').style.display='block';document.getElementById('pgfill').style.width='0%';document.getElementById('pgitems').innerHTML='';document.getElementById('spLabel').textContent=`جاري المعالجة 0 / ${t}`;}
+function addPI(txt){const d=document.createElement('div');d.className='pgitem';const id='pi_'+Math.random().toString(36).slice(2);d.id=id;d.innerHTML=`<div class="pgdot"></div><span>${txt}</span>`;document.getElementById('pgitems').appendChild(d);document.getElementById('pgitems').scrollTop=9999;return id;}
+function updPI(id,st,txt){const el=document.getElementById(id);if(!el)return;el.className='pgitem '+st;el.querySelector('span').textContent=txt;}
+function setFill(d,t){document.getElementById('pgfill').style.width=`${(d/t)*100}%`;document.getElementById('spLabel').textContent=`جاري المعالجة ${d} / ${t}`;}
+
+// ══ GENERATE ══════════════════════════════════════════
+document.getElementById('genBtn').addEventListener('click',async()=>{
+  if(!xlsRows.length)return;
+  allPosters.length=0; // reset registry
+  const btn=document.getElementById('genBtn');btn.disabled=true;btn.textContent='⏳ جاري...';
+  const cont=document.getElementById('resCont'),sec=document.getElementById('resSection');
+  cont.innerHTML='';sec.style.display='block';document.getElementById('errbox').style.display='none';
+  showSP(xlsRows.length);
+  for(let i=0;i<xlsRows.length;i++){
+    const{content,channel,time}=xlsRows[i];
+    const piId=addPI(`🎨 ${content}...`);
+    try{
+      const{wrap,hasPoster,hasCh,hasTt}=await buildOne(content,channel,time,i);
+      cont.appendChild(wrap);
+      updPI(piId,'ok',`✓ ${content} · بوستر ${hasPoster?'✓':'✗'} ${hasPoster===2?'(TMDB)':''} · قناة ${hasCh?'✓':'✗'} · تايتل ${hasTt?'✓':'✗'}`);
+    }catch(e){updPI(piId,'fail',`✗ ${content} — ${e.message}`);}
+    setFill(i+1,xlsRows.length);
+  }
+  document.getElementById('resCount').textContent=`🎬 ${xlsRows.length} بوستر جاهزة`;
+  document.getElementById('spLabel').textContent=`✅ اكتملت — ${xlsRows.length} بوستر`;
+  btn.disabled=false;btn.textContent='🎬 ابدأ الإنشاء';
+});
+
+document.getElementById('clrBtn').addEventListener('click',()=>{
+  document.getElementById('resSection').style.display='none';
+  document.getElementById('resCont').innerHTML='';
+  document.getElementById('sp').style.display='none';
+  allPosters.length=0;
+});
+
+// ══ DOWNLOAD ALL AS ZIP ════════════════════════════════
+document.getElementById('dlAllBtn').addEventListener('click',async()=>{
+  if(!allPosters.length)return;
+  const btn=document.getElementById('dlAllBtn');
+  btn.disabled=true;btn.textContent='⏳ جاري التجميع...';
+
+  try{
+    const zip=new JSZip();
+    const folder=zip.folder('posters');
+
+    for(const{canvas,content}of allPosters){
+      // downscale to W×H
+      const out=document.createElement('canvas');
+      out.width=W;out.height=H;
+      const ctx=out.getContext('2d');
+      ctx.imageSmoothingEnabled=true;
+      ctx.imageSmoothingQuality='high';
+      ctx.drawImage(canvas,0,0,canvas.width,canvas.height,0,0,W,H);
+      const dataUrl=out.toDataURL('image/jpeg',0.95);
+      const base64=dataUrl.split(',')[1];
+      folder.file(`${content.replace(/\s+/g,'_')}_poster.jpg`, base64, {base64:true});
+    }
+
+    const blob=await zip.generateAsync({type:'blob'});
+    const a=document.createElement('a');
+    a.download='posters.zip';
+    a.href=URL.createObjectURL(blob);
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }catch(err){
+    alert('حدث خطأ: '+err.message);
+  }
+
+  btn.disabled=false;btn.textContent='📦 تحميل الكل ZIP';
+});
+</script>
+</body>
+</html>
