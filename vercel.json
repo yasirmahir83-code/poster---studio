@@ -1,9 +1,6 @@
 {
   "version": 2,
-  "functions": {
-    "poster.js": {}
-  },
   "rewrites": [
-    { "source": "/api/poster", "destination": "/poster.js" }
+    { "source": "/api/(.*)", "destination": "/api/$1" }
   ]
 }
