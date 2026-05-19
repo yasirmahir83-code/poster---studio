@@ -1,12 +1,6 @@
 {
   "version": 2,
-  "functions": {
-    "poster.js": {
-      "runtime": "edge"
-    }
-  },
-  "routes": [
-    { "src": "/api/poster", "dest": "/poster.js" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    { "source": "/api/poster", "destination": "/poster.js" }
   ]
 }
