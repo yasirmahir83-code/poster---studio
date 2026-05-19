@@ -693,10 +693,11 @@ document.getElementById('ttLogoIn').addEventListener('change',function(){
 // ══ TMDB STATUS CHECK ═════════════════════════════════
 (async()=>{
   try{
-    const r=await fetch('/api/poster?title=test&source=tmdb&skip=0');
+    const r=await fetch(`https://api.themoviedb.org/3/configuration?api_key=${TMDB_KEY}`);
     const d=await r.json();
     const el=document.getElementById('tmdbStatus');
-    if(el){el.textContent='✅ TMDB متصل';el.style.color='rgba(100,200,100,.7)';}
+    if(d.images){el.textContent='✅ TMDB متصل';el.style.color='rgba(100,200,100,.7)';}
+    else{el.textContent='⚠️ TMDB خطأ';el.style.color='rgba(255,150,50,.7)';}
   }catch(e){
     const el=document.getElementById('tmdbStatus');
     if(el){el.textContent='⚠️ تعذر الاتصال بـ TMDB';el.style.color='rgba(255,150,50,.7)';}
@@ -851,25 +852,50 @@ function defaultCfg(contentName){
   };
 }
 
-// ══ FETCH POSTER VIA API ══════════════════════════════
-async function fetchPosterViaApi(title, source, skip=0){
+// ══ FETCH POSTER — TMDB direct + Arabic via API ═══════
+const TMDB_KEY='efef2b916f7e7c557a2528095210d8a6';
+const TMDB_IMG='https://image.tmdb.org/t/p/w500';
+
+async function fetchTmdbPoster(title, skip=0){
   try{
     const q=encodeURIComponent(title);
-    const r=await fetch(`/api/poster?title=${q}&source=${source}&skip=${skip}`);
+    const [mRes,tRes,mRes2,tRes2]=await Promise.all([
+      fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${q}&language=ar`),
+      fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${q}&language=ar`),
+      fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${q}`),
+      fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${q}`)
+    ]);
+    const [mData,tData,mData2,tData2]=await Promise.all([mRes.json(),tRes.json(),mRes2.json(),tRes2.json()]);
+    const seen=new Set(); const candidates=[];
+    for(const[type,data] of [['movie',mData],['tv',tData],['movie',mData2],['tv',tData2]]){
+      for(const r of (data.results||[])){
+        if(!seen.has(r.id)){seen.add(r.id);candidates.push({id:r.id,type});}
+      }
+    }
+    if(!candidates.length)return null;
+    const pick=candidates[skip%candidates.length];
+    const imgRes=await fetch(`https://api.themoviedb.org/3/${pick.type}/${pick.id}/images?api_key=${TMDB_KEY}`);
+    const imgData=await imgRes.json();
+    const posters=imgData.posters||[];
+    if(!posters.length)return null;
+    const poster=posters[Math.floor(skip/candidates.length)%posters.length];
+    if(!poster?.file_path)return null;
+    // fetch image as blob → dataURL
+    const imgFetch=await fetch(TMDB_IMG+poster.file_path);
+    const blob=await imgFetch.blob();
+    return new Promise(res=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.readAsDataURL(blob);});
+  }catch(e){return null;}
+}
+
+async function fetchArabicPoster(title, source){
+  try{
+    const q=encodeURIComponent(title);
+    const r=await fetch(`/api/poster?title=${q}&source=${source}&skip=0`);
+    if(!r.ok)return null;
     const d=await r.json();
     if(d.found && d.dataUrl) return d.dataUrl;
     return null;
   }catch(e){return null;}
-}
-
-// ══ ARABIC SOURCES (via Vercel API) ══════════════════
-async function fetchArabicPoster(title, source){
-  return fetchPosterViaApi(title, source, 0);
-}
-
-// ══ TMDB (via Vercel API) ════════════════════════════
-async function fetchTmdbPoster(title, skip=0){
-  return fetchPosterViaApi(title, 'tmdb', skip);
 }
 
 // ══ ALL CANVASES registry for download-all ════════════
