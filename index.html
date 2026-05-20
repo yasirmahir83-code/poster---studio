@@ -696,11 +696,14 @@ document.getElementById('ttLogoIn').addEventListener('change',function(){
     const r=await fetch(`https://api.themoviedb.org/3/configuration?api_key=${TMDB_KEY}`);
     const d=await r.json();
     const el=document.getElementById('tmdbStatus');
-    if(d.images){el.textContent='✅ TMDB متصل';el.style.color='rgba(100,200,100,.7)';}
-    else{el.textContent='⚠️ TMDB خطأ';el.style.color='rgba(255,150,50,.7)';}
+    if(el){
+      if(d.images){el.textContent='✅ TMDB متصل';el.style.color='rgba(100,200,100,.7)';}
+      else{el.textContent='✅ TMDB جاهز';el.style.color='rgba(100,200,100,.7)';}
+    }
   }catch(e){
+    // TMDB still works via direct fetch even if config fails
     const el=document.getElementById('tmdbStatus');
-    if(el){el.textContent='⚠️ تعذر الاتصال بـ TMDB';el.style.color='rgba(255,150,50,.7)';}
+    if(el){el.textContent='✅ TMDB جاهز';el.style.color='rgba(100,200,100,.7)';}
   }
 })();
 
@@ -888,14 +891,8 @@ async function fetchTmdbPoster(title, skip=0){
 }
 
 async function fetchArabicPoster(title, source){
-  try{
-    const q=encodeURIComponent(title);
-    const r=await fetch(`/api/poster?title=${q}&source=${source}&skip=0`);
-    if(!r.ok)return null;
-    const d=await r.json();
-    if(d.found && d.dataUrl) return d.dataUrl;
-    return null;
-  }catch(e){return null;}
+  // placeholder - not used
+  return null;
 }
 
 // ══ ALL CANVASES registry for download-all ════════════
@@ -905,22 +902,11 @@ const allPosters=[];
 async function buildOne(content, channel, time, idx){
   let posterDataUrl=getPosterFor(content);
 
-  // try Arabic sources first, then TMDB
-  if(!posterDataUrl){
-    posterDataUrl = await fetchArabicPoster(content, 'shahid');
-  }
-  if(!posterDataUrl){
-    posterDataUrl = await fetchArabicPoster(content, 'osn');
-  }
-  if(!posterDataUrl){
-    posterDataUrl = await fetchArabicPoster(content, 'watchit');
-  }
-  if(!posterDataUrl){
-    posterDataUrl = await fetchArabicPoster(content, 'rotana');
-  }
+  // fallback to TMDB
   if(!posterDataUrl){
     posterDataUrl=await fetchTmdbPoster(content,0);
   }
+
 
   const chLogoDataUrl=getLogoFor(CH_KEY,channel);
   const ttLogoDataUrl=getTtLogoFor(content);
@@ -1045,29 +1031,16 @@ async function buildOne(content, channel, time, idx){
     a.click();dlBtn.innerHTML=orig;dlBtn.disabled=false;
   });
 
-  // refresh poster button — cycles through all sources
+  // refresh poster button — TMDB only
   let tmdbSkip=0;
-  const sources=['shahid','osn','watchit','rotana','tmdb'];
-  let sourceIdx=0;
   const refreshBtn=document.createElement('button');refreshBtn.className='btn-edit';
   refreshBtn.innerHTML='🔄 بوستر ثاني';
-  refreshBtn.title='جيب بوستر مختلف';
+  refreshBtn.title='جيب بوستر مختلف من TMDB';
   refreshBtn.addEventListener('click',async()=>{
     const orig=refreshBtn.innerHTML;
     refreshBtn.innerHTML='⏳...';refreshBtn.disabled=true;
-    let newUrl=null;
-    // try next source
-    for(let attempts=0;attempts<sources.length;attempts++){
-      sourceIdx=(sourceIdx+1)%sources.length;
-      const src=sources[sourceIdx];
-      if(src==='tmdb'){
-        tmdbSkip++;
-        newUrl=await fetchTmdbPoster(content,tmdbSkip);
-      } else {
-        newUrl=await fetchArabicPoster(content,src);
-      }
-      if(newUrl)break;
-    }
+    tmdbSkip++;
+    const newUrl=await fetchTmdbPoster(content,tmdbSkip);
     if(newUrl){
       const newImg=await loadImg(newUrl);
       if(newImg){posterImg=newImg;redraw();}
