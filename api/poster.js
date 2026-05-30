@@ -4,7 +4,7 @@ export const config = { runtime: 'edge' };
 const TMDB_KEY = 'efef2b916f7e7c557a2528095210d8a6';
 const TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
 const GOOGLE_API_KEY = 'AIzaSyDldDNQl0hZVzaJwwzxcJ_960yM5HdxS-M';
-const GOOGLE_CX = 'd19b52af885184a37';
+const GOOGLE_CX = 'a63c5c1f99cff4561';
 
 function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
