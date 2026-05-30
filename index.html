@@ -913,12 +913,12 @@ const allPosters=[];
 async function buildOne(content, channel, time, idx){
   let posterDataUrl=getPosterFor(content);
 
-  // TMDB first, then Google as fallback
+  // TMDB first, then Google as fallback (with channel name for better results)
   if(!posterDataUrl){
     posterDataUrl=await fetchTmdbPoster(content,0);
   }
   if(!posterDataUrl){
-    posterDataUrl=await fetchGooglePoster(content,0);
+    posterDataUrl=await fetchGooglePoster(`${content} ${channel}`,0);
   }
 
 
@@ -1062,7 +1062,7 @@ async function buildOne(content, channel, time, idx){
       if(!newUrl){useGoogle=true;}
     }
     if(useGoogle&&!newUrl){
-      newUrl=await fetchGooglePoster(content,googleSkip);
+      newUrl=await fetchGooglePoster(`${content} ${channel}`,googleSkip);
       googleSkip++;
     }
     if(newUrl){
