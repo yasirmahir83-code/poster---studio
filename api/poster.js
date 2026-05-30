@@ -51,9 +51,14 @@ const SOURCES = {
   google: async (title, skip) => {
     skip = skip || 0;
     const start = Math.min((skip * 1) + 1, 91);
-    const q = encodeURIComponent(`${title} poster`);
-    // siteSearch empty = search entire web
-    const url = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${GOOGLE_CX}&q=${q}&searchType=image&imgSize=xlarge&imgType=photo&num=10&start=${start}&safe=active&siteSearch=&siteSearchFilter=e`;
+    // Try multiple search queries for better results
+    const queries = [
+      `${title} poster`,
+      `${title} برنامج تلفزيوني`,
+      `${title} مسلسل فيلم`,
+    ];
+    const q = encodeURIComponent(queries[skip % queries.length] + (skip >= queries.length ? ` ${Math.floor(skip/queries.length)}` : ''));
+    const url = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${GOOGLE_CX}&q=${q}&searchType=image&imgSize=xlarge&imgType=photo&num=10&start=${start}&safe=active`;
     const r = await fetch(url);
     const d = await r.json();
     if (!d.items || !d.items.length) return null;
