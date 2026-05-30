@@ -50,9 +50,10 @@ const SOURCES = {
 
   google: async (title, skip) => {
     skip = skip || 0;
-    const start = Math.min((skip * 1) + 1, 91); // max 100 results
+    const start = Math.min((skip * 1) + 1, 91);
     const q = encodeURIComponent(`${title} poster`);
-    const url = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${GOOGLE_CX}&q=${q}&searchType=image&imgSize=xlarge&imgType=photo&num=10&start=${start}&safe=active`;
+    // siteSearch empty = search entire web
+    const url = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${GOOGLE_CX}&q=${q}&searchType=image&imgSize=xlarge&imgType=photo&num=10&start=${start}&safe=active&siteSearch=&siteSearchFilter=e`;
     const r = await fetch(url);
     const d = await r.json();
     if (!d.items || !d.items.length) return null;
