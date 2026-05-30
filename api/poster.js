@@ -1,7 +1,10 @@
+// Vercel serverless function — TMDB + Google Custom Search
 export const config = { runtime: 'edge' };
 
 const TMDB_KEY = 'efef2b916f7e7c557a2528095210d8a6';
 const TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
+const GOOGLE_API_KEY = 'AIzaSyDldDNQl0hZVzaJwwzxcJ_960yM5HdxS-M';
+const GOOGLE_CX = '67643cfdf6f0643d4';
 
 function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
@@ -18,133 +21,7 @@ async function fetchImage(url) {
   return `data:${ct};base64,${b64}`;
 }
 
-// Extract best image URL from HTML
-function extractImageFromHtml(html, domain) {
-  // try JSON-LD structured data first
-  const jsonLd = html.match(/<script[^>]+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi);
-  if (jsonLd) {
-    for (const block of jsonLd) {
-      try {
-        const json = JSON.parse(block.replace(/<[^>]+>/g, ''));
-        const img = json.image || json.thumbnail || json.thumbnailUrl;
-        if (img && typeof img === 'string' && img.startsWith('http')) return img;
-        if (img && img.url) return img.url;
-      } catch(e) {}
-    }
-  }
-  // try og:image
-  const og = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
-    || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
-  if (og && og[1].startsWith('http')) return og[1];
-  // try twitter:image
-  const tw = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i);
-  if (tw && tw[1].startsWith('http')) return tw[1];
-  // try any large image from domain
-  const imgs = [...html.matchAll(/https?:\/\/[^"'\s]+\.(jpg|jpeg|png|webp)/gi)];
-  for (const m of imgs) {
-    if (m[0].includes('poster') || m[0].includes('cover') || m[0].includes('thumb')) return m[0];
-  }
-  return null;
-}
-
 const SOURCES = {
-  shahid: async (title) => {
-    const q = encodeURIComponent(title);
-    // Try Shahid search API endpoint
-    const searchUrls = [
-      `https://shahid.mbc.net/ar/search?q=${q}`,
-      `https://shahid.mbc.net/api/v2/search?q=${q}&type=movie,series`,
-    ];
-    for (const url of searchUrls) {
-      try {
-        const r = await fetch(url, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept-Language': 'ar,en' }
-        });
-        const text = await r.text();
-        // try JSON response
-        try {
-          const json = JSON.parse(text);
-          const items = json.data?.items || json.results || json.items || [];
-          for (const item of items) {
-            const img = item.image || item.poster || item.thumbnail || item.coverImage;
-            if (img && typeof img === 'string') return img;
-            if (img && img.url) return img.url;
-          }
-        } catch(e) {}
-        const img = extractImageFromHtml(text, 'shahid');
-        if (img) return img;
-      } catch(e) {}
-    }
-    return null;
-  },
-
-  osn: async (title) => {
-    const q = encodeURIComponent(title);
-    const urls = [
-      `https://www.osn.com/en/search?q=${q}`,
-      `https://api.osn.com/api/search?q=${q}`,
-    ];
-    for (const url of urls) {
-      try {
-        const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html,application/json' } });
-        const text = await r.text();
-        try {
-          const json = JSON.parse(text);
-          const items = json.data || json.results || json.items || [];
-          for (const item of (Array.isArray(items) ? items : [])) {
-            const img = item.image || item.poster || item.thumbnail;
-            if (img && typeof img === 'string') return img;
-          }
-        } catch(e) {}
-        const img = extractImageFromHtml(text, 'osn');
-        if (img) return img;
-      } catch(e) {}
-    }
-    return null;
-  },
-
-  watchit: async (title) => {
-    const q = encodeURIComponent(title);
-    const urls = [
-      `https://watchit.ae/search?query=${q}`,
-      `https://www.watchit.ae/api/search?q=${q}`,
-    ];
-    for (const url of urls) {
-      try {
-        const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-        const text = await r.text();
-        try {
-          const json = JSON.parse(text);
-          const items = json.data || json.results || [];
-          for (const item of (Array.isArray(items) ? items : [])) {
-            const img = item.image || item.poster || item.thumbnail;
-            if (img && typeof img === 'string') return img;
-          }
-        } catch(e) {}
-        const img = extractImageFromHtml(text, 'watchit');
-        if (img) return img;
-      } catch(e) {}
-    }
-    return null;
-  },
-
-  rotana: async (title) => {
-    const q = encodeURIComponent(title);
-    const urls = [
-      `https://rotana.net/search?q=${q}`,
-      `https://www.rotana.net/search/${q}`,
-    ];
-    for (const url of urls) {
-      try {
-        const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept-Language': 'ar' } });
-        const text = await r.text();
-        const img = extractImageFromHtml(text, 'rotana');
-        if (img) return img;
-      } catch(e) {}
-    }
-    return null;
-  },
-
   tmdb: async (title, skip) => {
     skip = skip || 0;
     const q = encodeURIComponent(title);
@@ -169,6 +46,24 @@ const SOURCES = {
     if (!posters.length) return null;
     const poster = posters[Math.floor(skip / candidates.length) % posters.length];
     return poster?.file_path ? TMDB_IMG + poster.file_path : null;
+  },
+
+  google: async (title, skip) => {
+    skip = skip || 0;
+    const start = Math.min((skip * 1) + 1, 91); // max 100 results
+    const q = encodeURIComponent(`${title} poster`);
+    const url = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${GOOGLE_CX}&q=${q}&searchType=image&imgSize=xlarge&imgType=photo&num=10&start=${start}&safe=active`;
+    const r = await fetch(url);
+    const d = await r.json();
+    if (!d.items || !d.items.length) return null;
+    // prefer portrait images (height > width) for poster quality
+    const portrait = d.items.filter(item => {
+      const w = parseInt(item.image?.width || 0);
+      const h = parseInt(item.image?.height || 0);
+      return h > w && w >= 300;
+    });
+    const pick = portrait[skip % Math.max(portrait.length, 1)] || d.items[skip % d.items.length];
+    return pick?.link || null;
   }
 };
 

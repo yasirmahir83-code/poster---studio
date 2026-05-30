@@ -890,6 +890,17 @@ async function fetchTmdbPoster(title, skip=0){
   }catch(e){return null;}
 }
 
+async function fetchGooglePoster(title, skip=0){
+  try{
+    const q=encodeURIComponent(title);
+    const r=await fetch(`/api/poster?title=${q}&source=google&skip=${skip}`);
+    if(!r.ok)return null;
+    const d=await r.json();
+    if(d.found && d.dataUrl) return d.dataUrl;
+    return null;
+  }catch(e){return null;}
+}
+
 async function fetchArabicPoster(title, source){
   // placeholder - not used
   return null;
@@ -902,9 +913,12 @@ const allPosters=[];
 async function buildOne(content, channel, time, idx){
   let posterDataUrl=getPosterFor(content);
 
-  // fallback to TMDB
+  // TMDB first, then Google as fallback
   if(!posterDataUrl){
     posterDataUrl=await fetchTmdbPoster(content,0);
+  }
+  if(!posterDataUrl){
+    posterDataUrl=await fetchGooglePoster(content,0);
   }
 
 
@@ -1031,16 +1045,26 @@ async function buildOne(content, channel, time, idx){
     a.click();dlBtn.innerHTML=orig;dlBtn.disabled=false;
   });
 
-  // refresh poster button — TMDB only
+  // refresh poster button — TMDB then Google
   let tmdbSkip=0;
+  let googleSkip=0;
+  let useGoogle=false;
   const refreshBtn=document.createElement('button');refreshBtn.className='btn-edit';
   refreshBtn.innerHTML='🔄 بوستر ثاني';
-  refreshBtn.title='جيب بوستر مختلف من TMDB';
+  refreshBtn.title='جيب بوستر مختلف';
   refreshBtn.addEventListener('click',async()=>{
     const orig=refreshBtn.innerHTML;
     refreshBtn.innerHTML='⏳...';refreshBtn.disabled=true;
-    tmdbSkip++;
-    const newUrl=await fetchTmdbPoster(content,tmdbSkip);
+    let newUrl=null;
+    if(!useGoogle){
+      tmdbSkip++;
+      newUrl=await fetchTmdbPoster(content,tmdbSkip);
+      if(!newUrl){useGoogle=true;}
+    }
+    if(useGoogle&&!newUrl){
+      newUrl=await fetchGooglePoster(content,googleSkip);
+      googleSkip++;
+    }
     if(newUrl){
       const newImg=await loadImg(newUrl);
       if(newImg){posterImg=newImg;redraw();}
