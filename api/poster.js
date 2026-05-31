@@ -1,10 +1,9 @@
-// Vercel serverless function — TMDB + Google Custom Search
+// Vercel serverless function — TMDB + Serper.dev Google Images
 export const config = { runtime: 'edge' };
 
 const TMDB_KEY = 'efef2b916f7e7c557a2528095210d8a6';
-const TMDB_IMG = 'https://image.tmdb.org/t/p/w500';
-const GOOGLE_API_KEY = 'AIzaSyDldDNQl0hZVzaJwwzxcJ_960yM5HdxS-M';
-const GOOGLE_CX = 'a63c5c1f99cff4561';
+const TMDB_IMG = 'https://image.tmdb.org/t/p/w780';
+const SERPER_KEY = 'b98a37191b7263635742b763e55b1a85a2f37abef';
 
 function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
@@ -50,26 +49,41 @@ const SOURCES = {
 
   google: async (title, skip) => {
     skip = skip || 0;
-    const start = Math.min((skip * 1) + 1, 91);
-    // Try multiple search queries for better results
+    // Use Serper.dev for Google Images search — searches entire web
     const queries = [
       `${title} poster`,
-      `${title} برنامج تلفزيوني`,
-      `${title} مسلسل فيلم`,
+      `${title} برنامج تلفزيوني صورة`,
+      `${title} مسلسل فيلم poster`,
     ];
-    const q = encodeURIComponent(queries[skip % queries.length] + (skip >= queries.length ? ` ${Math.floor(skip/queries.length)}` : ''));
-    const url = `https://www.googleapis.com/customsearch/v1?key=${GOOGLE_API_KEY}&cx=${GOOGLE_CX}&q=${q}&searchType=image&imgSize=xlarge&imgType=photo&num=10&start=${start}&safe=active`;
-    const r = await fetch(url);
+    const q = queries[skip % queries.length];
+    
+    const r = await fetch('https://google.serper.dev/images', {
+      method: 'POST',
+      headers: {
+        'X-API-KEY': SERPER_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        q: q,
+        num: 10,
+        gl: 'iq', // Iraq region for better Arabic results
+        hl: 'ar'
+      })
+    });
+    
     const d = await r.json();
-    if (!d.items || !d.items.length) return null;
-    // prefer portrait images (height > width) for poster quality
-    const portrait = d.items.filter(item => {
-      const w = parseInt(item.image?.width || 0);
-      const h = parseInt(item.image?.height || 0);
+    if (!d.images || !d.images.length) return null;
+    
+    // Filter portrait images (height > width) for poster quality
+    const portrait = d.images.filter(img => {
+      const w = parseInt(img.imageWidth || 0);
+      const h = parseInt(img.imageHeight || 0);
       return h > w && w >= 300;
     });
-    const pick = portrait[skip % Math.max(portrait.length, 1)] || d.items[skip % d.items.length];
-    return pick?.link || null;
+    
+    const items = portrait.length ? portrait : d.images;
+    const idx = Math.floor(skip / queries.length) % items.length;
+    return items[idx]?.imageUrl || null;
   }
 };
 
