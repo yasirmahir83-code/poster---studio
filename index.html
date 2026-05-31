@@ -911,7 +911,7 @@ const allPosters=[];
 
 // ══ BUILD ONE POSTER ══════════════════════════════════
 async function buildOne(content, channel, time, idx){
-  let posterDataUrl=getPosterFor(content);
+  let posterDataUrl=null; // skip cache for testing
 
   // Google (Serper) only for testing
   if(!posterDataUrl){
