@@ -74,14 +74,19 @@ const SOURCES = {
     const d = await r.json();
     if (!d.images || !d.images.length) return null;
     
-    // Filter portrait images (height > width) for poster quality
+    // Prefer portrait images but accept any large image
     const portrait = d.images.filter(img => {
       const w = parseInt(img.imageWidth || 0);
       const h = parseInt(img.imageHeight || 0);
-      return h > w && w >= 300;
+      return h > w;
     });
     
-    const items = portrait.length ? portrait : d.images;
+    const large = d.images.filter(img => {
+      const w = parseInt(img.imageWidth || 0);
+      return w >= 200;
+    });
+    
+    const items = portrait.length ? portrait : (large.length ? large : d.images);
     const idx = Math.floor(skip / queries.length) % items.length;
     return items[idx]?.imageUrl || null;
   }
