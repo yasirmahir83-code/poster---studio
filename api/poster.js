@@ -1,14 +1,11 @@
-export const config = { runtime: 'edge' };
+export const config = { maxDuration: 30 };
 
 const TMDB_KEY = 'efef2b916f7e7c557a2528095210d8a6';
 const TMDB_IMG = 'https://image.tmdb.org/t/p/w780';
 const SERPER_KEY = 'b98a37191b7263635742b763e55b1a85a2f37abef';
 
 function arrayBufferToBase64(buffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
-  return btoa(binary);
+  return Buffer.from(buffer).toString('base64');
 }
 
 async function fetchImageAsBase64(url) {
