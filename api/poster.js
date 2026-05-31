@@ -12,12 +12,23 @@ function arrayBufferToBase64(buffer) {
   return btoa(binary);
 }
 
-async function fetchImage(url) {
-  const r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
-  const buf = await r.arrayBuffer();
-  const b64 = arrayBufferToBase64(buf);
-  const ct = r.headers.get('content-type') || 'image/jpeg';
-  return `data:${ct};base64,${b64}`;
+async function fetchImageAsBase64(url) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const r = await fetch(url, { 
+      headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://google.com' },
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    if (!r.ok) return null;
+    const buf = await r.arrayBuffer();
+    const b64 = arrayBufferToBase64(buf);
+    const ct = r.headers.get('content-type') || 'image/jpeg';
+    return `data:${ct};base64,${b64}`;
+  } catch(e) {
+    return null;
+  }
 }
 
 const SOURCES = {
@@ -37,23 +48,22 @@ const SOURCES = {
         if (!seen.has(r.id)) { seen.add(r.id); candidates.push({ id: r.id, type }); }
       }
     }
-    if (!candidates.length) return null;
+    if (!candidates.length) return { url: null };
     const pick = candidates[skip % candidates.length];
     const imgRes = await fetch(`https://api.themoviedb.org/3/${pick.type}/${pick.id}/images?api_key=${TMDB_KEY}`);
     const imgData = await imgRes.json();
     const posters = imgData.posters || [];
-    if (!posters.length) return null;
+    if (!posters.length) return { url: null };
     const poster = posters[Math.floor(skip / candidates.length) % posters.length];
-    return poster?.file_path ? TMDB_IMG + poster.file_path : null;
+    return { url: poster?.file_path ? TMDB_IMG + poster.file_path : null };
   },
 
   google: async (title, skip) => {
     skip = skip || 0;
-    // Use Serper.dev for Google Images search — searches entire web
     const queries = [
       `${title}`,
-      `${title} برنامج تلفزيوني`,
-      `${title} مسلسل فيلم`,
+      `${title} poster`,
+      `${title} مسلسل فيلم برنامج`,
     ];
     const q = queries[skip % queries.length];
     
@@ -63,32 +73,26 @@ const SOURCES = {
         'X-API-KEY': SERPER_KEY,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        q: q,
-        num: 10,
-        gl: 'iq', // Iraq region for better Arabic results
-        hl: 'ar'
-      })
+      body: JSON.stringify({ q, num: 10, gl: 'iq', hl: 'ar' })
     });
     
     const d = await r.json();
-    if (!d.images || !d.images.length) return null;
+    if (!d.images || !d.images.length) return { url: null };
     
-    // Prefer portrait images but accept any large image
+    // Prefer portrait images
     const portrait = d.images.filter(img => {
       const w = parseInt(img.imageWidth || 0);
       const h = parseInt(img.imageHeight || 0);
       return h > w;
     });
     
-    const large = d.images.filter(img => {
-      const w = parseInt(img.imageWidth || 0);
-      return w >= 200;
-    });
-    
-    const items = portrait.length ? portrait : (large.length ? large : d.images);
-    const idx = Math.floor(skip / queries.length) % items.length;
-    return items[idx]?.imageUrl || null;
+    const items = portrait.length ? portrait : d.images;
+    // Try multiple images if first fails
+    for (let i = 0; i < Math.min(items.length, 5); i++) {
+      const imgUrl = items[(Math.floor(skip / 3) + i) % items.length]?.imageUrl;
+      if (imgUrl) return { url: imgUrl };
+    }
+    return { url: null };
   }
 };
 
@@ -105,9 +109,11 @@ export default async function handler(req) {
     'Cache-Control': 'no-store'
   };
 
+  // Proxy endpoint — fetch image as base64
   if (proxyUrl) {
     try {
-      const dataUrl = await fetchImage(proxyUrl);
+      const dataUrl = await fetchImageAsBase64(proxyUrl);
+      if (!dataUrl) return new Response(JSON.stringify({ error: 'failed' }), { status: 500, headers });
       return new Response(JSON.stringify({ dataUrl }), { headers });
     } catch (e) {
       return new Response(JSON.stringify({ error: e.message }), { status: 500, headers });
@@ -120,10 +126,15 @@ export default async function handler(req) {
     const fn = SOURCES[source];
     if (!fn) return new Response(JSON.stringify({ error: 'unknown source' }), { status: 400, headers });
 
-    const imgUrl = await fn(title, skip);
+    const { url: imgUrl } = await fn(title, skip);
     if (!imgUrl) return new Response(JSON.stringify({ found: false }), { headers });
 
-    const dataUrl = await fetchImage(imgUrl);
+    // Try to fetch image as base64
+    const dataUrl = await fetchImageAsBase64(imgUrl);
+    if (!dataUrl) {
+      // Return URL directly if base64 fails — let client handle it
+      return new Response(JSON.stringify({ found: true, imgUrl, source }), { headers });
+    }
     return new Response(JSON.stringify({ found: true, dataUrl, source, imgUrl }), { headers });
   } catch (e) {
     return new Response(JSON.stringify({ error: e.message }), { status: 500, headers });
