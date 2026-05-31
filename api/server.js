@@ -1,7 +1,7 @@
-// v2
+// v3
 const express = require('express');
 const handler = require('./poster');
 const app = express();
 app.use((req, res) => handler(req, res));
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log('Server running on port ' + PORT));
+app.listen(PORT, '0.0.0.0', () => console.log('Server running on port ' + PORT));
