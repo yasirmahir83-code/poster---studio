@@ -912,10 +912,13 @@ const allPosters=[];
 // ══ BUILD ONE POSTER ══════════════════════════════════
 async function buildOne(content, channel, time, idx){
   let posterDataUrl=null; // skip cache for testing
+  console.log('buildOne called:', content, channel);
 
   // Google (Serper) only for testing
   if(!posterDataUrl){
+    console.log('fetching Google poster...');
     posterDataUrl=await fetchGooglePoster(`${content} ${channel}`,0);
+    console.log('Google result:', posterDataUrl ? 'found' : 'not found');
   }
 
 
