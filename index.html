@@ -893,12 +893,14 @@ async function fetchTmdbPoster(title, skip=0){
 async function fetchGooglePoster(title, skip=0){
   try{
     const q=encodeURIComponent(title);
+    console.log('Calling API:', `/api/poster?title=${decodeURIComponent(q)}&source=google&skip=${skip}`);
     const r=await fetch(`/api/poster?title=${q}&source=google&skip=${skip}`);
-    if(!r.ok)return null;
+    if(!r.ok){console.log('API error:', r.status); return null;}
     const d=await r.json();
+    console.log('API response:', JSON.stringify(d).substring(0,200));
     if(d.found && d.dataUrl) return d.dataUrl;
     return null;
-  }catch(e){return null;}
+  }catch(e){console.log('fetch error:', e.message); return null;}
 }
 
 async function fetchArabicPoster(title, source){
