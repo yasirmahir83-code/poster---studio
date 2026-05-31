@@ -897,8 +897,18 @@ async function fetchGooglePoster(title, skip=0){
     const r=await fetch(`/api/poster?title=${q}&source=google&skip=${skip}`);
     if(!r.ok){console.log('API error:', r.status); return null;}
     const d=await r.json();
-    console.log('API response:', JSON.stringify(d).substring(0,200));
+    console.log('API response:', d.found, d.imgUrl ? 'has imgUrl' : 'no imgUrl', d.dataUrl ? 'has dataUrl' : 'no dataUrl');
     if(d.found && d.dataUrl) return d.dataUrl;
+    // Fallback: use imgUrl directly via proxy
+    if(d.found && d.imgUrl){
+      const proxyR=await fetch(`/api/poster?url=${encodeURIComponent(d.imgUrl)}`);
+      if(proxyR.ok){
+        const pd=await proxyR.json();
+        if(pd.dataUrl) return pd.dataUrl;
+      }
+      // Last resort: return imgUrl directly
+      return d.imgUrl;
+    }
     return null;
   }catch(e){console.log('fetch error:', e.message); return null;}
 }
