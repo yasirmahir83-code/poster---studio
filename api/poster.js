@@ -51,9 +51,9 @@ const SOURCES = {
     skip = skip || 0;
     // Use Serper.dev for Google Images search — searches entire web
     const queries = [
-      `${title} poster`,
-      `${title} برنامج تلفزيوني صورة`,
-      `${title} مسلسل فيلم poster`,
+      `${title}`,
+      `${title} برنامج تلفزيوني`,
+      `${title} مسلسل فيلم`,
     ];
     const q = queries[skip % queries.length];
     
