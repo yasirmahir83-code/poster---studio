@@ -913,10 +913,7 @@ const allPosters=[];
 async function buildOne(content, channel, time, idx){
   let posterDataUrl=getPosterFor(content);
 
-  // TMDB first, then Google as fallback (with channel name for better results)
-  if(!posterDataUrl){
-    posterDataUrl=await fetchTmdbPoster(content,0);
-  }
+  // Google (Serper) only for testing
   if(!posterDataUrl){
     posterDataUrl=await fetchGooglePoster(`${content} ${channel}`,0);
   }
