@@ -12,20 +12,28 @@ function arrayBufferToBase64(buffer) {
 }
 
 async function fetchImageAsBase64(url) {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    const r = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://google.com' },
-      signal: controller.signal
-    });
-    clearTimeout(timeout);
-    if (!r.ok) return null;
-    const buf = await r.arrayBuffer();
-    const b64 = arrayBufferToBase64(buf);
-    const ct = r.headers.get('content-type') || 'image/jpeg';
-    return `data:${ct};base64,${b64}`;
-  } catch(e) { return null; }
+  const attempts = [
+    { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Referer': 'https://google.com' },
+    { 'User-Agent': 'Mozilla/5.0', 'Accept': 'image/*' },
+    { 'User-Agent': 'curl/7.68.0' },
+  ];
+  
+  for (const headers of attempts) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      const r = await fetch(url, { headers, signal: controller.signal });
+      clearTimeout(timeout);
+      if (!r.ok) continue;
+      const ct = r.headers.get('content-type') || '';
+      if (!ct.startsWith('image/')) continue;
+      const buf = await r.arrayBuffer();
+      if (buf.byteLength < 100) continue;
+      const b64 = arrayBufferToBase64(buf);
+      return `data:${ct};base64,${b64}`;
+    } catch(e) { continue; }
+  }
+  return null;
 }
 
 async function searchSerper(query) {
