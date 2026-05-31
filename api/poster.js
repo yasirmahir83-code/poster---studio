@@ -67,17 +67,28 @@ const SOURCES = {
     ];
     const q = queries[skip % queries.length];
     
-    const r = await fetch('https://google.serper.dev/images', {
-      method: 'POST',
-      headers: {
-        'X-API-KEY': SERPER_KEY,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ q, num: 10, gl: 'iq', hl: 'ar' })
-    });
+    // Try multiple region searches
+    const searches = [
+      { q, num: 10 },
+      { q, num: 10, gl: 'eg', hl: 'ar' },
+      { q, num: 10, gl: 'iq', hl: 'ar' },
+    ];
     
-    const d = await r.json();
-    if (!d.images || !d.images.length) return { url: null };
+    let d = null;
+    for (const body of searches) {
+      const r = await fetch('https://google.serper.dev/images', {
+        method: 'POST',
+        headers: { 'X-API-KEY': SERPER_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const res = await r.json();
+      if (res.images && res.images.length > 0) {
+        d = res;
+        break;
+      }
+    }
+    
+    if (!d || !d.images || !d.images.length) return { url: null };
     
     // Prefer portrait images
     const portrait = d.images.filter(img => {
