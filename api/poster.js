@@ -67,11 +67,11 @@ async function searchSerper(query) {
 function getBestImage(images) {
   if (!images.length) return null;
   
-  // First: high quality portrait (min 800px wide, height > width)
+  // First: high quality portrait (min 500px wide, height > width)
   const hqPortrait = images.filter(img => {
     const w = parseInt(img.imageWidth || 0);
     const h = parseInt(img.imageHeight || 0);
-    return h > w && w >= 800;
+    return h > w && w >= 500;
   });
   if (hqPortrait.length) return hqPortrait[0].imageUrl;
   
@@ -79,7 +79,7 @@ function getBestImage(images) {
   const highQualityPortrait = images.filter(img => {
     const w = parseInt(img.imageWidth || 0);
     const h = parseInt(img.imageHeight || 0);
-    return h > w && w >= 500;
+    return h > w && w >= 300;
   });
   if (highQualityPortrait.length) return highQualityPortrait[0].imageUrl;
   
