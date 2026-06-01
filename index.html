@@ -890,27 +890,25 @@ async function fetchTmdbPoster(title, skip=0){
   }catch(e){return null;}
 }
 
+const RAILWAY_API = 'https://poster-studio-production.up.railway.app';
+
 async function fetchGooglePoster(title, skip=0){
   try{
     const q=encodeURIComponent(title);
-    console.log('Calling API:', `/api/poster?title=${decodeURIComponent(q)}&source=google&skip=${skip}`);
-    const r=await fetch(`/api/poster?title=${q}&source=google&skip=${skip}`);
-    if(!r.ok){console.log('API error:', r.status); return null;}
+    const r=await fetch(`${RAILWAY_API}/api/poster?title=${q}&source=auto&skip=${skip}`);
+    if(!r.ok) return null;
     const d=await r.json();
-    console.log('API response:', d.found, d.imgUrl ? 'has imgUrl' : 'no imgUrl', d.dataUrl ? 'has dataUrl' : 'no dataUrl');
     if(d.found && d.dataUrl) return d.dataUrl;
-    // Fallback: use imgUrl directly via proxy
     if(d.found && d.imgUrl){
-      const proxyR=await fetch(`/api/poster?url=${encodeURIComponent(d.imgUrl)}`);
+      const proxyR=await fetch(`${RAILWAY_API}/api/poster?url=${encodeURIComponent(d.imgUrl)}`);
       if(proxyR.ok){
         const pd=await proxyR.json();
         if(pd.dataUrl) return pd.dataUrl;
       }
-      // Last resort: return imgUrl directly
       return d.imgUrl;
     }
     return null;
-  }catch(e){console.log('fetch error:', e.message); return null;}
+  }catch(e){return null;}
 }
 
 async function fetchArabicPoster(title, source){
@@ -923,14 +921,10 @@ const allPosters=[];
 
 // ══ BUILD ONE POSTER ══════════════════════════════════
 async function buildOne(content, channel, time, idx){
-  let posterDataUrl=null; // skip cache for testing
-  console.log('buildOne called:', content, channel);
+  let posterDataUrl = getPosterFor(content);
 
-  // Google (Serper) only for testing
   if(!posterDataUrl){
-    console.log('fetching Google poster...');
-    posterDataUrl=await fetchGooglePoster(`${content} ${channel}`,0);
-    console.log('Google result:', posterDataUrl ? 'found' : 'not found');
+    posterDataUrl = await fetchGooglePoster(`${content} ${channel}`, 0);
   }
 
 
