@@ -924,6 +924,11 @@ async function buildOne(content, channel, time, idx){
   let posterDataUrl = getPosterFor(content);
 
   if(!posterDataUrl){
+    // Search by title only first
+    posterDataUrl = await fetchGooglePoster(content, 0);
+  }
+  if(!posterDataUrl){
+    // If not found, try with channel name
     posterDataUrl = await fetchGooglePoster(`${content} ${channel}`, 0);
   }
 
@@ -1068,7 +1073,8 @@ async function buildOne(content, channel, time, idx){
       if(!newUrl){useGoogle=true;}
     }
     if(useGoogle&&!newUrl){
-      newUrl=await fetchGooglePoster(`${content} ${channel}`,googleSkip);
+      newUrl=await fetchGooglePoster(content,googleSkip);
+      if(!newUrl) newUrl=await fetchGooglePoster(`${content} ${channel}`,googleSkip);
       googleSkip++;
     }
     if(newUrl){
