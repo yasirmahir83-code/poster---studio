@@ -1056,9 +1056,9 @@ async function buildOne(content, channel, time, idx){
     a.click();dlBtn.innerHTML=orig;dlBtn.disabled=false;
   });
 
-  // refresh poster button — TMDB then Google
+  // refresh poster button — cycles through different search queries
   let tmdbSkip=0;
-  let googleSkip=0;
+  let googleSkip=1; // start from 1 so refresh gets different query than initial
   let useGoogle=false;
   const refreshBtn=document.createElement('button');refreshBtn.className='btn-edit';
   refreshBtn.innerHTML='🔄 بوستر ثاني';
@@ -1074,7 +1074,6 @@ async function buildOne(content, channel, time, idx){
     }
     if(useGoogle&&!newUrl){
       newUrl=await fetchGooglePoster(content,googleSkip);
-      if(!newUrl) newUrl=await fetchGooglePoster(`${content} ${channel}`,googleSkip);
       googleSkip++;
     }
     if(newUrl){

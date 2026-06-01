@@ -66,19 +66,56 @@ async function searchSerper(query) {
 
 function getBestImage(images) {
   if (!images.length) return null;
+  
+  // First: high quality portrait (min 800px wide, height > width)
+  const hqPortrait = images.filter(img => {
+    const w = parseInt(img.imageWidth || 0);
+    const h = parseInt(img.imageHeight || 0);
+    return h > w && w >= 800;
+  });
+  if (hqPortrait.length) return hqPortrait[0].imageUrl;
+  
+  // Second: portrait with min 500px
+  const highQualityPortrait = images.filter(img => {
+    const w = parseInt(img.imageWidth || 0);
+    const h = parseInt(img.imageHeight || 0);
+    return h > w && w >= 500;
+  });
+  if (highQualityPortrait.length) return highQualityPortrait[0].imageUrl;
+  
+  // Third: any portrait image (min 300px)
   const portrait = images.filter(img => {
     const w = parseInt(img.imageWidth || 0);
     const h = parseInt(img.imageHeight || 0);
-    return h > w && w >= 200;
+    return h > w && w >= 300;
   });
-  return (portrait.length ? portrait : images)[0]?.imageUrl || null;
+  if (portrait.length) return portrait[0].imageUrl;
+  
+  // Last resort: any large image
+  const large = images.filter(img => parseInt(img.imageWidth || 0) >= 400);
+  return (large.length ? large : images)[0]?.imageUrl || null;
+}
+
+function buildQueries(title, skip) {
+  const isConcert = /حفل/.test(title);
+  const queries = [
+    title,
+    `${title} poster`,
+    `${title} official poster`,
+    `${title} HD`,
+    `${title} 2024`,
+  ];
+  if (isConcert) queries.splice(1, 0, `${title} concert poster`);
+  return queries;
 }
 
 async function searchGoogle(title, skip) {
   skip = skip || 0;
-  const queries = [`${title} poster`, `${title}`, `${title} TV show`];
+  const queries = buildQueries(title, skip);
+  const startIdx = skip % queries.length;
   for (let i = 0; i < queries.length; i++) {
-    const images = await searchSerper(queries[(skip + i) % queries.length]);
+    const q = queries[(startIdx + i) % queries.length];
+    const images = await searchSerper(q);
     const url = getBestImage(images);
     if (url) return url;
   }
