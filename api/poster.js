@@ -205,7 +205,51 @@ async function searchTMDB(title, skip) {
   } catch(e) { return null; }
 }
 
-module.exports = async function handler(req, res) {
+// Puppeteer — search protected sites like Shahid
+async function searchWithPuppeteer(title, site) {
+  try {
+    const puppeteer = require('puppeteer');
+    const browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+    });
+    const page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+    
+    let imgUrl = null;
+    
+    if (site === 'shahid') {
+      const searchUrl = `https://shahid.mbc.net/ar/search?q=${encodeURIComponent(title)}`;
+      await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 15000 });
+      // Get first poster image
+      imgUrl = await page.evaluate(() => {
+        const imgs = document.querySelectorAll('img[src*="shahid"], img[src*="mbc"]');
+        for (const img of imgs) {
+          const w = img.naturalWidth || parseInt(img.getAttribute('width') || 0);
+          const h = img.naturalHeight || parseInt(img.getAttribute('height') || 0);
+          if (w >= 200 && h > w) return img.src;
+          if (w >= 200) return img.src;
+        }
+        // Try any image with poster-like URL
+        const allImgs = document.querySelectorAll('img');
+        for (const img of allImgs) {
+          if (img.src && (img.src.includes('poster') || img.src.includes('thumb') || img.src.includes('cover'))) {
+            return img.src;
+          }
+        }
+        return null;
+      });
+    }
+    
+    await browser.close();
+    return imgUrl;
+  } catch(e) {
+    console.log('Puppeteer error:', e.message);
+    return null;
+  }
+}
+
+
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-store');
@@ -229,7 +273,17 @@ module.exports = async function handler(req, res) {
     } else if (source === 'google') {
       imgUrl = await searchGoogle(title, s, channel);
     } else {
-      imgUrl = await searchTMDB(title, s);
+      // Check if title contains site keywords
+      const titleLower = title.toLowerCase();
+      const isShahid = /شاهد|shahid/i.test(title) || /شاهد|shahid/i.test(channel);
+      
+      if (isShahid) {
+        // Try Puppeteer for Shahid first
+        const cleanTitle = title.replace(/شاهد|shahid/gi, '').trim();
+        imgUrl = await searchWithPuppeteer(cleanTitle, 'shahid');
+      }
+      
+      if (!imgUrl) imgUrl = await searchTMDB(title, s);
       if (!imgUrl) imgUrl = await searchGoogle(title, s, channel);
     }
 
