@@ -52,8 +52,9 @@ async function searchSerper(query) {
         res.on('end', () => {
           try {
             const d = JSON.parse(body);
+            console.log('Serper status:', res.statusCode, 'images:', (d.images||[]).length, 'error:', d.message||'none');
             resolve(d.images || []);
-          } catch(e) { resolve([]); }
+          } catch(e) { console.log('Serper parse error:', e.message); resolve([]); }
         });
       });
       req.on('error', () => resolve([]));
