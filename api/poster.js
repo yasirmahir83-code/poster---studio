@@ -67,7 +67,7 @@ async function searchSerper(query) {
 function getBestImage(images) {
   if (!images.length) return null;
   
-  // First: high quality portrait (min 500px wide, height > width)
+  // First: portrait images (height > width, min 500px wide)
   const hqPortrait = images.filter(img => {
     const w = parseInt(img.imageWidth || 0);
     const h = parseInt(img.imageHeight || 0);
@@ -75,25 +75,24 @@ function getBestImage(images) {
   });
   if (hqPortrait.length) return hqPortrait[0].imageUrl;
   
-  // Second: portrait with min 500px
-  const highQualityPortrait = images.filter(img => {
-    const w = parseInt(img.imageWidth || 0);
-    const h = parseInt(img.imageHeight || 0);
-    return h > w && w >= 300;
-  });
-  if (highQualityPortrait.length) return highQualityPortrait[0].imageUrl;
-  
-  // Third: any portrait image (min 300px)
+  // Second: any portrait image (min 300px)
   const portrait = images.filter(img => {
     const w = parseInt(img.imageWidth || 0);
     const h = parseInt(img.imageHeight || 0);
     return h > w && w >= 300;
   });
   if (portrait.length) return portrait[0].imageUrl;
+
+  // Third: any portrait
+  const anyPortrait = images.filter(img => {
+    const w = parseInt(img.imageWidth || 0);
+    const h = parseInt(img.imageHeight || 0);
+    return h > w;
+  });
+  if (anyPortrait.length) return anyPortrait[0].imageUrl;
   
-  // Last resort: any large image
-  const large = images.filter(img => parseInt(img.imageWidth || 0) >= 400);
-  return (large.length ? large : images)[0]?.imageUrl || null;
+  // Last resort: any image
+  return images[0]?.imageUrl || null;
 }
 
 function buildQueries(title, skip) {
@@ -135,10 +134,18 @@ async function httpsGet(url) {
   });
 }
 
+// Clean title for TMDB — remove Arabic/English prefixes
+function cleanTitleForTMDB(title) {
+  return title
+    .replace(/^(فيلم|مسلسل|برنامج|حفلة|حفلات|series|movie|film|show|TV show|concert)\s+/i, '')
+    .trim();
+}
+
 async function searchTMDB(title, skip) {
   skip = skip || 0;
   try {
-    const q = encodeURIComponent(title);
+    const cleanTitle = cleanTitleForTMDB(title);
+    const q = encodeURIComponent(cleanTitle);
     const [m1, t1, m2, t2] = await Promise.all([
       httpsGet(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${q}&language=ar`),
       httpsGet(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${q}&language=ar`),
