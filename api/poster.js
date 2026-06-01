@@ -1,7 +1,7 @@
 // Railway Node.js API
 const TMDB_KEY = 'efef2b916f7e7c557a2528095210d8a6';
 const TMDB_IMG = 'https://image.tmdb.org/t/p/w780';
-const SERPER_KEY = 'b98a37191b7263635742b763e55b1a85a2f37abef';
+const SERPER_KEY = 'ad8046eaea2913626cd49174a5aa371e578d3983';
 
 async function fetchImageAsBase64(url) {
   try {
