@@ -892,10 +892,11 @@ async function fetchTmdbPoster(title, skip=0){
 
 const RAILWAY_API = 'https://poster-studio-production.up.railway.app';
 
-async function fetchGooglePoster(title, skip=0){
+async function fetchGooglePoster(title, skip=0, channel=''){
   try{
     const q=encodeURIComponent(title);
-    const r=await fetch(`${RAILWAY_API}/api/poster?title=${q}&source=auto&skip=${skip}`);
+    const ch=encodeURIComponent(channel);
+    const r=await fetch(`${RAILWAY_API}/api/poster?title=${q}&source=auto&skip=${skip}&channel=${ch}`);
     if(!r.ok) return null;
     const d=await r.json();
     if(d.found && d.dataUrl) return d.dataUrl;
@@ -924,12 +925,8 @@ async function buildOne(content, channel, time, idx){
   let posterDataUrl = getPosterFor(content);
 
   if(!posterDataUrl){
-    // Search by title only first
-    posterDataUrl = await fetchGooglePoster(content, 0);
-  }
-  if(!posterDataUrl){
-    // If not found, try with channel name
-    posterDataUrl = await fetchGooglePoster(`${content} ${channel}`, 0);
+    // Search by title only first, passing channel for better results
+    posterDataUrl = await fetchGooglePoster(content, 0, channel);
   }
 
 
@@ -1073,7 +1070,7 @@ async function buildOne(content, channel, time, idx){
       if(!newUrl){useGoogle=true;}
     }
     if(useGoogle&&!newUrl){
-      newUrl=await fetchGooglePoster(content,googleSkip);
+      newUrl=await fetchGooglePoster(content,googleSkip,channel);
       googleSkip++;
     }
     if(newUrl){

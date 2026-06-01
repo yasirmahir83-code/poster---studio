@@ -95,22 +95,59 @@ function getBestImage(images) {
   return images[0]?.imageUrl || null;
 }
 
-function buildQueries(title, skip) {
+// Channel name to search keyword mapping
+const CHANNEL_MAP = {
+  // Iraqi channels
+  'alsharqiya': 'alsharqiya', 'الشرقية': 'alsharqiya',
+  'alsumaria': 'alsumaria', 'السومرية': 'alsumaria',
+  'dijlah': 'dijlah', 'دجلة': 'dijlah',
+  'aliraqia': 'aliraqia', 'العراقية': 'aliraqia',
+  'aliraqi24': 'aliraqi24', 'العراق 24': 'aliraqi24',
+  'alfurat': 'alfurat', 'الفرات': 'alfurat',
+  'alfalouja': 'alfalouja', 'الفلوجة': 'alfalouja',
+  'karbala': 'karbala', 'كربلاء': 'karbala',
+  'alahad': 'alahad', 'العهد': 'alahad',
+  'alshabab': 'alshabab', 'الشباب': 'alshabab',
+  'alrabiaa': 'alrabiaa', 'الرابعة': 'alrabiaa',
+  'alrasheed': 'alrasheed', 'الرشيد': 'alrasheed',
+  // Arab channels
+  'mbc': 'mbc', 'aljazeera': 'aljazeera', 'الجزيرة': 'aljazeera',
+  'abudhabi': 'abudhabi', 'أبو ظبي': 'abudhabi',
+  'dubai': 'dubai', 'دبي': 'dubai',
+  'alhayat': 'alhayat', 'الحياة': 'alhayat',
+  'cbc': 'cbc', 'dmc': 'dmc', 'on': 'on',
+  'super': 'super', 'mbc masr': 'mbc masr',
+  'alkhaleejieh': 'alkhaleejieh', 'الخليجية': 'alkhaleejieh',
+  'ktv': 'ktv', 'kuwait tv': 'kuwait tv',
+};
+
+function getChannelKeyword(channel) {
+  if (!channel) return null;
+  const lower = channel.toLowerCase().trim();
+  for (const [key, val] of Object.entries(CHANNEL_MAP)) {
+    if (lower.includes(key.toLowerCase())) return val;
+  }
+  return channel; // use as-is if not found
+}
+
+function buildQueries(title, skip, channel) {
   const isConcert = /حفل/.test(title);
-  const queries = [
-    title,
-    `${title} poster`,
-    `${title} official poster`,
-    `${title} HD`,
-    `${title} 2024`,
-  ];
-  if (isConcert) queries.splice(1, 0, `${title} concert poster`);
+  const isKids = /أطفال|اطفال|kids|cartoon|كارتون/i.test(title);
+  const channelKeyword = getChannelKeyword(channel);
+
+  const queries = [title, `${title} poster`];
+
+  if (isConcert) queries.push(`${title} concert poster`);
+  if (isKids) queries.push(`${title} kids cartoon TV show poster`);
+  if (channelKeyword) queries.push(`${title} ${channelKeyword}`);
+
+  queries.push(`${title} official poster`, `${title} HD`, `${title} 2024`);
   return queries;
 }
 
-async function searchGoogle(title, skip) {
+async function searchGoogle(title, skip, channel) {
   skip = skip || 0;
-  const queries = buildQueries(title, skip);
+  const queries = buildQueries(title, skip, channel);
   const startIdx = skip % queries.length;
   for (let i = 0; i < queries.length; i++) {
     const q = queries[(startIdx + i) % queries.length];
@@ -173,7 +210,7 @@ module.exports = async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-store');
 
-  const { title, source='auto', skip='0', url: proxyUrl } = req.query;
+  const { title, source='auto', skip='0', url: proxyUrl, channel='' } = req.query;
 
   if (proxyUrl) {
     const dataUrl = await fetchImageAsBase64(proxyUrl);
@@ -190,10 +227,10 @@ module.exports = async function handler(req, res) {
     if (source === 'tmdb') {
       imgUrl = await searchTMDB(title, s);
     } else if (source === 'google') {
-      imgUrl = await searchGoogle(title, s);
+      imgUrl = await searchGoogle(title, s, channel);
     } else {
       imgUrl = await searchTMDB(title, s);
-      if (!imgUrl) imgUrl = await searchGoogle(title, s);
+      if (!imgUrl) imgUrl = await searchGoogle(title, s, channel);
     }
 
     if (!imgUrl) return res.json({ found: false });
