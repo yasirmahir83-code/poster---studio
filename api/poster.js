@@ -1,45 +1,65 @@
+// Railway Node.js API
 const TMDB_KEY = 'efef2b916f7e7c557a2528095210d8a6';
 const TMDB_IMG = 'https://image.tmdb.org/t/p/w780';
 const SERPER_KEY = 'b98a37191b7263635742b763e55b1a85a2f37abef';
 
 async function fetchImageAsBase64(url) {
-  const https = require('https');
-  const http = require('http');
-  return new Promise((resolve) => {
-    const client = url.startsWith('https') ? https : http;
-    const req = client.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Referer': 'https://google.com',
-        'Accept': 'image/*'
-      },
-      timeout: 10000
-    }, (res) => {
-      if (res.statusCode !== 200) { resolve(null); return; }
-      const ct = res.headers['content-type'] || 'image/jpeg';
-      const chunks = [];
-      res.on('data', chunk => chunks.push(chunk));
-      res.on('end', () => {
-        const buf = Buffer.concat(chunks);
-        if (buf.length < 100) { resolve(null); return; }
-        resolve(`data:${ct};base64,${buf.toString('base64')}`);
+  try {
+    const { default: https } = await import(url.startsWith('https') ? 'https' : 'http');
+    return new Promise((resolve) => {
+      const req = https.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Referer': 'https://google.com',
+          'Accept': 'image/webp,image/*,*/*;q=0.8'
+        },
+        timeout: 10000
+      }, (res) => {
+        if (res.statusCode >= 300) { resolve(null); return; }
+        const ct = res.headers['content-type'] || 'image/jpeg';
+        const chunks = [];
+        res.on('data', c => chunks.push(c));
+        res.on('end', () => {
+          const buf = Buffer.concat(chunks);
+          if (buf.length < 500) { resolve(null); return; }
+          resolve(`data:${ct};base64,${buf.toString('base64')}`);
+        });
+        res.on('error', () => resolve(null));
       });
-      res.on('error', () => resolve(null));
+      req.on('error', () => resolve(null));
+      req.on('timeout', () => { req.destroy(); resolve(null); });
     });
-    req.on('error', () => resolve(null));
-    req.on('timeout', () => { req.destroy(); resolve(null); });
-  });
+  } catch(e) { return null; }
 }
 
 async function searchSerper(query) {
   try {
-    const res = await fetch('https://google.serper.dev/images', {
-      method: 'POST',
-      headers: { 'X-API-KEY': SERPER_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ q: query, num: 10 })
+    const https = require('https');
+    const data = JSON.stringify({ q: query, num: 10 });
+    return new Promise((resolve) => {
+      const req = https.request({
+        hostname: 'google.serper.dev',
+        path: '/images',
+        method: 'POST',
+        headers: {
+          'X-API-KEY': SERPER_KEY,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(data)
+        }
+      }, (res) => {
+        let body = '';
+        res.on('data', chunk => body += chunk);
+        res.on('end', () => {
+          try {
+            const d = JSON.parse(body);
+            resolve(d.images || []);
+          } catch(e) { resolve([]); }
+        });
+      });
+      req.on('error', () => resolve([]));
+      req.write(data);
+      req.end();
     });
-    const d = await res.json();
-    return d.images || [];
   } catch(e) { return []; }
 }
 
@@ -50,24 +70,31 @@ function getBestImage(images) {
     const h = parseInt(img.imageHeight || 0);
     return h > w && w >= 200;
   });
-  const list = portrait.length ? portrait : images;
-  return list[0]?.imageUrl || null;
+  return (portrait.length ? portrait : images)[0]?.imageUrl || null;
 }
 
 async function searchGoogle(title, skip) {
   skip = skip || 0;
-  const queries = [
-    `${title} poster`,
-    `${title}`,
-    `${title} TV show`,
-  ];
+  const queries = [`${title} poster`, `${title}`, `${title} TV show`];
   for (let i = 0; i < queries.length; i++) {
-    const q = queries[(skip + i) % queries.length];
-    const images = await searchSerper(q);
+    const images = await searchSerper(queries[(skip + i) % queries.length]);
     const url = getBestImage(images);
     if (url) return url;
   }
   return null;
+}
+
+async function httpsGet(url) {
+  const https = require('https');
+  return new Promise((resolve, reject) => {
+    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(body)); } catch(e) { resolve({}); }
+      });
+    }).on('error', () => resolve({}));
+  });
 }
 
 async function searchTMDB(title, skip) {
@@ -75,10 +102,10 @@ async function searchTMDB(title, skip) {
   try {
     const q = encodeURIComponent(title);
     const [m1, t1, m2, t2] = await Promise.all([
-      fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${q}&language=ar`).then(r=>r.json()),
-      fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${q}&language=ar`).then(r=>r.json()),
-      fetch(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${q}`).then(r=>r.json()),
-      fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${q}`).then(r=>r.json()),
+      httpsGet(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${q}&language=ar`),
+      httpsGet(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${q}&language=ar`),
+      httpsGet(`https://api.themoviedb.org/3/search/movie?api_key=${TMDB_KEY}&query=${q}`),
+      httpsGet(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_KEY}&query=${q}`),
     ]);
     const seen = new Set(); const candidates = [];
     for (const [type, data] of [['movie',m1],['tv',t1],['movie',m2],['tv',t2]]) {
@@ -88,7 +115,7 @@ async function searchTMDB(title, skip) {
     }
     if (!candidates.length) return null;
     const pick = candidates[skip % candidates.length];
-    const imgData = await fetch(`https://api.themoviedb.org/3/${pick.type}/${pick.id}/images?api_key=${TMDB_KEY}`).then(r=>r.json());
+    const imgData = await httpsGet(`https://api.themoviedb.org/3/${pick.type}/${pick.id}/images?api_key=${TMDB_KEY}`);
     const posters = imgData.posters || [];
     if (!posters.length) return null;
     const poster = posters[Math.floor(skip/candidates.length) % posters.length];
@@ -132,4 +159,4 @@ module.exports = async function handler(req, res) {
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
-};
+}
