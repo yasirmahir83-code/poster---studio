@@ -42,7 +42,7 @@ async function httpsGet(url) {
 async function scrapingBeeGet(targetUrl) {
   try {
     const https = require('https');
-    const apiUrl = `https://app.scrapingbee.com/api/v1/?api_key=${SCRAPINGBEE_KEY}&url=${encodeURIComponent(targetUrl)}&render_js=true&wait=3000&premium_proxy=true`;
+    const apiUrl = `https://app.scrapingbee.com/api/v1/?api_key=${SCRAPINGBEE_KEY}&url=${encodeURIComponent(targetUrl)}&render_js=true&wait=8000&premium_proxy=true&wait_for=img`;
     return new Promise((resolve) => {
       https.get(apiUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
         let body = '';
