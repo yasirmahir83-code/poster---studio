@@ -95,6 +95,7 @@ async function searchShahid(title) {
     // Extract image URLs from HTML
     const imgMatches = html.match(/https?:\/\/[^"'\s]+\.(?:jpg|jpeg|png|webp)[^"'\s]*/gi) || [];
     console.log('Found imgs:', imgMatches.length);
+    console.log('First 10 imgs:', imgMatches.slice(0,10).join('\n'));
     
     // Filter for poster-like images (exclude logos, icons, brand images)
     const posters = imgMatches.filter(url => 
