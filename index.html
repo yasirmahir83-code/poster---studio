@@ -769,7 +769,14 @@ function drawPoster(canvas, posterImg, chLogoImg, ttLogoImg, time, cfg){
   // 1. BG
   ctx.fillStyle='#000';ctx.fillRect(0,0,W*S,H*S);
   if(posterImg){
-    ctx.drawImage(posterImg,0,0,W*S,H*S);
+    // Smart draw — crop to fill canvas while keeping aspect ratio
+    const cw = W*S, ch = H*S;
+    const iw = posterImg.naturalWidth || posterImg.width;
+    const ih = posterImg.naturalHeight || posterImg.height;
+    const scale = Math.max(cw/iw, ch/ih);
+    const dw = iw*scale, dh = ih*scale;
+    const dx = (cw-dw)/2, dy = (ch-dh)/2;
+    ctx.drawImage(posterImg, dx, dy, dw, dh);
   }else{
     const grd=ctx.createLinearGradient(0,0,W*S,H*S);
     grd.addColorStop(0,'#0d0d2e');grd.addColorStop(.5,'#1a1050');grd.addColorStop(1,'#0d1a10');
