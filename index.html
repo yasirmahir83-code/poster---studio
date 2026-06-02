@@ -769,14 +769,23 @@ function drawPoster(canvas, posterImg, chLogoImg, ttLogoImg, time, cfg){
   // 1. BG
   ctx.fillStyle='#000';ctx.fillRect(0,0,W*S,H*S);
   if(posterImg){
-    // Smart draw — crop to fill canvas while keeping aspect ratio
+    // Draw blurred background + centered image
     const cw = W*S, ch = H*S;
     const iw = posterImg.naturalWidth || posterImg.width;
     const ih = posterImg.naturalHeight || posterImg.height;
-    const scale = Math.max(cw/iw, ch/ih);
+    // Blurred background
+    ctx.filter = 'blur(20px)';
+    const bgScale = Math.max(cw/iw, ch/ih);
+    const bgW = iw*bgScale, bgH = ih*bgScale;
+    ctx.drawImage(posterImg, (cw-bgW)/2, (ch-bgH)/2, bgW, bgH);
+    ctx.filter = 'none';
+    // Darken background slightly
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(0, 0, cw, ch);
+    // Centered image with correct aspect ratio
+    const scale = Math.min(cw/iw, ch/ih);
     const dw = iw*scale, dh = ih*scale;
-    const dx = (cw-dw)/2, dy = (ch-dh)/2;
-    ctx.drawImage(posterImg, dx, dy, dw, dh);
+    ctx.drawImage(posterImg, (cw-dw)/2, (ch-dh)/2, dw, dh);
   }else{
     const grd=ctx.createLinearGradient(0,0,W*S,H*S);
     grd.addColorStop(0,'#0d0d2e');grd.addColorStop(.5,'#1a1050');grd.addColorStop(1,'#0d1a10');
