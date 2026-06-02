@@ -52,9 +52,8 @@ async function searchSerper(query) {
         res.on('end', () => {
           try {
             const d = JSON.parse(body);
-            console.log('Serper status:', res.statusCode, 'images:', (d.images||[]).length, 'error:', d.message||'none');
             resolve(d.images || []);
-          } catch(e) { console.log('Serper parse error:', e.message); resolve([]); }
+          } catch(e) { resolve([]); }
         });
       });
       req.on('error', () => resolve([]));
@@ -66,38 +65,28 @@ async function searchSerper(query) {
 
 function getBestImage(images) {
   if (!images.length) return null;
-  
-  // First: portrait images (height > width, min 500px wide)
   const hqPortrait = images.filter(img => {
     const w = parseInt(img.imageWidth || 0);
     const h = parseInt(img.imageHeight || 0);
     return h > w && w >= 500;
   });
   if (hqPortrait.length) return hqPortrait[0].imageUrl;
-  
-  // Second: any portrait image (min 300px)
   const portrait = images.filter(img => {
     const w = parseInt(img.imageWidth || 0);
     const h = parseInt(img.imageHeight || 0);
     return h > w && w >= 300;
   });
   if (portrait.length) return portrait[0].imageUrl;
-
-  // Third: any portrait
   const anyPortrait = images.filter(img => {
     const w = parseInt(img.imageWidth || 0);
     const h = parseInt(img.imageHeight || 0);
     return h > w;
   });
   if (anyPortrait.length) return anyPortrait[0].imageUrl;
-  
-  // Last resort: any image
   return images[0]?.imageUrl || null;
 }
 
-// Channel name to search keyword mapping
 const CHANNEL_MAP = {
-  // Iraqi channels
   'alsharqiya': 'alsharqiya', 'الشرقية': 'alsharqiya',
   'alsumaria': 'alsumaria', 'السومرية': 'alsumaria',
   'dijlah': 'dijlah', 'دجلة': 'dijlah',
@@ -110,7 +99,6 @@ const CHANNEL_MAP = {
   'alshabab': 'alshabab', 'الشباب': 'alshabab',
   'alrabiaa': 'alrabiaa', 'الرابعة': 'alrabiaa',
   'alrasheed': 'alrasheed', 'الرشيد': 'alrasheed',
-  // Arab channels
   'mbc': 'mbc', 'aljazeera': 'aljazeera', 'الجزيرة': 'aljazeera',
   'abudhabi': 'abudhabi', 'أبو ظبي': 'abudhabi',
   'dubai': 'dubai', 'دبي': 'dubai',
@@ -127,20 +115,17 @@ function getChannelKeyword(channel) {
   for (const [key, val] of Object.entries(CHANNEL_MAP)) {
     if (lower.includes(key.toLowerCase())) return val;
   }
-  return channel; // use as-is if not found
+  return channel;
 }
 
 function buildQueries(title, skip, channel) {
   const isConcert = /حفل/.test(title);
   const isKids = /أطفال|اطفال|kids|cartoon|كارتون/i.test(title);
   const channelKeyword = getChannelKeyword(channel);
-
   const queries = [title, `${title} poster`];
-
   if (isConcert) queries.push(`${title} concert poster`);
   if (isKids) queries.push(`${title} kids cartoon TV show poster`);
   if (channelKeyword) queries.push(`${title} ${channelKeyword}`);
-
   queries.push(`${title} official poster`, `${title} HD`, `${title} 2024`);
   return queries;
 }
@@ -160,7 +145,7 @@ async function searchGoogle(title, skip, channel) {
 
 async function httpsGet(url) {
   const https = require('https');
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
       let body = '';
       res.on('data', chunk => body += chunk);
@@ -171,7 +156,6 @@ async function httpsGet(url) {
   });
 }
 
-// Clean title for TMDB — remove Arabic/English prefixes
 function cleanTitleForTMDB(title) {
   return title
     .replace(/^(فيلم|مسلسل|برنامج|حفلة|حفلات|series|movie|film|show|TV show|concert)\s+/i, '')
@@ -205,7 +189,6 @@ async function searchTMDB(title, skip) {
   } catch(e) { return null; }
 }
 
-// Puppeteer — search protected sites like Shahid
 async function searchWithPuppeteer(title, site) {
   try {
     const puppeteer = require('puppeteer');
@@ -215,13 +198,10 @@ async function searchWithPuppeteer(title, site) {
     });
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-    
     let imgUrl = null;
-    
     if (site === 'shahid') {
       const searchUrl = `https://shahid.mbc.net/ar/search?q=${encodeURIComponent(title)}`;
       await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 15000 });
-      // Get first poster image
       imgUrl = await page.evaluate(() => {
         const imgs = document.querySelectorAll('img[src*="shahid"], img[src*="mbc"]');
         for (const img of imgs) {
@@ -230,7 +210,6 @@ async function searchWithPuppeteer(title, site) {
           if (w >= 200 && h > w) return img.src;
           if (w >= 200) return img.src;
         }
-        // Try any image with poster-like URL
         const allImgs = document.querySelectorAll('img');
         for (const img of allImgs) {
           if (img.src && (img.src.includes('poster') || img.src.includes('thumb') || img.src.includes('cover'))) {
@@ -240,7 +219,6 @@ async function searchWithPuppeteer(title, site) {
         return null;
       });
     }
-    
     await browser.close();
     return imgUrl;
   } catch(e) {
@@ -249,7 +227,7 @@ async function searchWithPuppeteer(title, site) {
   }
 }
 
-
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-store');
@@ -273,16 +251,11 @@ async function searchWithPuppeteer(title, site) {
     } else if (source === 'google') {
       imgUrl = await searchGoogle(title, s, channel);
     } else {
-      // Check if title contains site keywords
-      const titleLower = title.toLowerCase();
       const isShahid = /شاهد|shahid/i.test(title) || /شاهد|shahid/i.test(channel);
-      
       if (isShahid) {
-        // Try Puppeteer for Shahid first
         const cleanTitle = title.replace(/شاهد|shahid/gi, '').trim();
         imgUrl = await searchWithPuppeteer(cleanTitle, 'shahid');
       }
-      
       if (!imgUrl) imgUrl = await searchTMDB(title, s);
       if (!imgUrl) imgUrl = await searchGoogle(title, s, channel);
     }
@@ -295,4 +268,4 @@ async function searchWithPuppeteer(title, site) {
   } catch(e) {
     return res.status(500).json({ error: e.message });
   }
-}
+};
