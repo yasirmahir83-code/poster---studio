@@ -96,12 +96,15 @@ async function searchShahid(title) {
     const imgMatches = html.match(/https?:\/\/[^"'\s]+\.(?:jpg|jpeg|png|webp)[^"'\s]*/gi) || [];
     console.log('Found imgs:', imgMatches.length);
     
-    // Filter for poster-like images (exclude logos, icons)
+    // Filter for poster-like images (exclude logos, icons, brand images)
     const posters = imgMatches.filter(url => 
       !url.includes('logo') && 
       !url.includes('icon') && 
       !url.includes('avatar') &&
-      (url.includes('poster') || url.includes('thumb') || url.includes('cover') || url.includes('shahid') || url.includes('mbc'))
+      !url.includes('mbc-shahid') &&
+      !url.includes('staticFiles') &&
+      !url.includes('brand') &&
+      (url.includes('poster') || url.includes('thumb') || url.includes('cover') || url.includes('program') || url.includes('series') || url.includes('show'))
     );
     
     if (posters.length) {
