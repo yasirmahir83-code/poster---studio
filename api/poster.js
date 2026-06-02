@@ -1,7 +1,12 @@
-// Railway Node.js API — TMDB + Shahid via ScrapingBee
+// Railway Node.js API — TMDB + Elcinema
 const TMDB_KEY = 'efef2b916f7e7c557a2528095210d8a6';
 const TMDB_IMG = 'https://image.tmdb.org/t/p/w780';
-const SCRAPINGBEE_KEY = process.env.SCRAPINGBEE_KEY || '';
+
+function cleanTitle(title) {
+  return title
+    .replace(/^(فيلم|مسلسل|برنامج|حفلة|حفلات|series|movie|film|show|TV show|concert)\s+/i, '')
+    .trim();
+}
 
 async function fetchImageAsBase64(url) {
   try {
@@ -39,23 +44,26 @@ async function httpsGet(url) {
   });
 }
 
-async function scrapingBeeGet(targetUrl) {
-  try {
-    const https = require('https');
-    const apiUrl = `https://app.scrapingbee.com/api/v1/?api_key=${SCRAPINGBEE_KEY}&url=${encodeURIComponent(targetUrl)}&render_js=true&wait=3000&premium_proxy=true`;
-    return new Promise((resolve) => {
-      https.get(apiUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
-        let body = '';
-        res.on('data', chunk => body += chunk);
-        res.on('end', () => resolve(body));
-        res.on('error', () => resolve(''));
-      }).on('error', () => resolve(''));
-    });
-  } catch(e) { return ''; }
-}
-
-function cleanTitle(title) {
-  return title.replace(/^(فيلم|مسلسل|برنامج|حفلة|حفلات|series|movie|film|show|TV show|concert)\s+/i, '').trim();
+async function httpsGetHtml(url) {
+  const https = require('https');
+  return new Promise((resolve) => {
+    https.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html',
+        'Accept-Language': 'ar,en;q=0.9'
+      }
+    }, (res) => {
+      // Handle redirects
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        return httpsGetHtml(res.headers.location).then(resolve);
+      }
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => resolve(body));
+      res.on('error', () => resolve(''));
+    }).on('error', () => resolve(''));
+  });
 }
 
 async function searchTMDB(title, skip) {
@@ -84,74 +92,31 @@ async function searchTMDB(title, skip) {
   } catch(e) { return null; }
 }
 
-async function searchShahid(title) {
-  try {
-    const searchUrl = `https://shahid.mbc.net/ar/search?q=${encodeURIComponent(cleanTitle(title))}`;
-    console.log('ScrapingBee fetching:', searchUrl);
-    
-    const html = await scrapingBeeGet(searchUrl);
-    if (!html) return null;
-    
-    // Extract image URLs from HTML
-    const imgMatches = html.match(/https?:\/\/[^"'\s]+\.(?:jpg|jpeg|png|webp)[^"'\s]*/gi) || [];
-    console.log('Found imgs:', imgMatches.length);
-    
-    // Filter for poster-like images (exclude logos, icons)
-    const posters = imgMatches.filter(url => 
-      !url.includes('logo') && 
-      !url.includes('icon') && 
-      !url.includes('avatar') &&
-      (url.includes('poster') || url.includes('thumb') || url.includes('cover') || url.includes('shahid') || url.includes('mbc'))
-    );
-    
-    if (posters.length) {
-      console.log('Shahid poster found:', posters[0]);
-      return posters[0];
-    }
-    
-    // Try any large image URL
-    if (imgMatches.length) return imgMatches[0];
-    return null;
-  } catch(e) {
-    console.log('Shahid ScrapingBee error:', e.message);
-    return null;
-  }
-}
-
 async function searchElcinema(title) {
   try {
-    const https = require('https');
     const q = encodeURIComponent(cleanTitle(title));
     const searchUrl = `https://elcinema.com/search/all/?q=${q}`;
-    
-    const html = await new Promise((resolve) => {
-      https.get(searchUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'text/html,application/xhtml+xml',
-          'Accept-Language': 'ar,en;q=0.9'
-        }
-      }, (res) => {
-        let body = '';
-        res.on('data', c => body += c);
-        res.on('end', () => resolve(body));
-        res.on('error', () => resolve(''));
-      }).on('error', () => resolve(''));
-    });
-    
+    const html = await httpsGetHtml(searchUrl);
     if (!html) return null;
-    
-    // Extract poster image from elcinema
-    const imgMatch = html.match(/class="poster[^"]*"[^>]*>\s*<img[^>]+src="([^"]+)"/i) ||
-                     html.match(/<img[^>]+class="[^"]*poster[^"]*"[^>]+src="([^"]+)"/i) ||
-                     html.match(/\/media\/[^"'\s]+\.(?:jpg|jpeg|png)/i);
-    
-    if (imgMatch) {
-      let imgUrl = imgMatch[1] || imgMatch[0];
-      if (imgUrl && !imgUrl.startsWith('http')) imgUrl = 'https://elcinema.com' + imgUrl;
-      console.log('Elcinema poster:', imgUrl);
-      return imgUrl;
+
+    // Extract first poster image
+    const patterns = [
+      /src="(https?:\/\/[^"]*elcinema[^"]*\.(?:jpg|jpeg|png|webp))"/i,
+      /src="(https?:\/\/[^"]*\/media\/[^"]*\.(?:jpg|jpeg|png|webp))"/i,
+      /<img[^>]+src="([^"]+\.(?:jpg|jpeg|png|webp))"[^>]*>/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = html.match(pattern);
+      if (match && match[1]) {
+        const imgUrl = match[1].startsWith('http') ? match[1] : 'https://elcinema.com' + match[1];
+        if (!imgUrl.includes('logo') && !imgUrl.includes('icon') && !imgUrl.includes('sprite')) {
+          console.log('Elcinema found:', imgUrl);
+          return imgUrl;
+        }
+      }
     }
+    console.log('Elcinema: no poster found');
     return null;
   } catch(e) {
     console.log('Elcinema error:', e.message);
@@ -159,12 +124,12 @@ async function searchElcinema(title) {
   }
 }
 
-
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-store');
 
-  const { title, source='auto', skip='0', url: proxyUrl, channel='' } = req.query;
+  const { title, source='auto', skip='0', url: proxyUrl } = req.query;
 
   if (proxyUrl) {
     const dataUrl = await fetchImageAsBase64(proxyUrl);
@@ -177,19 +142,15 @@ async function searchElcinema(title) {
   try {
     let imgUrl = null;
     const s = parseInt(skip) || 0;
-    const isShahid = /شاهد|shahid/i.test(title) || /شاهد|shahid/i.test(channel);
 
     if (source === 'tmdb') {
       imgUrl = await searchTMDB(title, s);
-    } else if (source === 'shahid') {
-      imgUrl = await searchShahid(title);
     } else if (source === 'elcinema') {
       imgUrl = await searchElcinema(title);
     } else {
-      // Auto: TMDB first, then Elcinema, then Shahid if requested
+      // Auto: TMDB first, then Elcinema
       imgUrl = await searchTMDB(title, s);
       if (!imgUrl) imgUrl = await searchElcinema(title);
-      if (!imgUrl && isShahid) imgUrl = await searchShahid(title);
     }
 
     if (!imgUrl) return res.json({ found: false });
