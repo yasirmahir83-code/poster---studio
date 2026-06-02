@@ -1,8 +1,7 @@
-// Railway Node.js API — TMDB + Shahid (Puppeteer with login)
+// Railway Node.js API — TMDB + Shahid via ScrapingBee
 const TMDB_KEY = 'efef2b916f7e7c557a2528095210d8a6';
 const TMDB_IMG = 'https://image.tmdb.org/t/p/w780';
-const SHAHID_EMAIL = process.env.SHAHID_EMAIL || '';
-const SHAHID_PASSWORD = process.env.SHAHID_PASSWORD || '';
+const SCRAPINGBEE_KEY = process.env.SCRAPINGBEE_KEY || '';
 
 async function fetchImageAsBase64(url) {
   try {
@@ -40,6 +39,21 @@ async function httpsGet(url) {
   });
 }
 
+async function scrapingBeeGet(targetUrl) {
+  try {
+    const https = require('https');
+    const apiUrl = `https://app.scrapingbee.com/api/v1/?api_key=${SCRAPINGBEE_KEY}&url=${encodeURIComponent(targetUrl)}&render_js=true&wait=3000&premium_proxy=true`;
+    return new Promise((resolve) => {
+      https.get(apiUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
+        let body = '';
+        res.on('data', chunk => body += chunk);
+        res.on('end', () => resolve(body));
+        res.on('error', () => resolve(''));
+      }).on('error', () => resolve(''));
+    });
+  } catch(e) { return ''; }
+}
+
 function cleanTitle(title) {
   return title.replace(/^(فيلم|مسلسل|برنامج|حفلة|حفلات|series|movie|film|show|TV show|concert)\s+/i, '').trim();
 }
@@ -70,107 +84,36 @@ async function searchTMDB(title, skip) {
   } catch(e) { return null; }
 }
 
-let browserInstance = null;
-let isLoggedInShahid = false;
-
-async function getBrowser() {
-  if (browserInstance) {
-    try { await browserInstance.version(); return browserInstance; } catch(e) { browserInstance = null; }
-  }
-  const puppeteer = require('puppeteer');
-  browserInstance = await puppeteer.launch({
-    headless: 'new',
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--no-zygote',
-      '--single-process',
-      '--disable-web-security',
-      '--disable-features=IsolateOrigins,site-per-process'
-    ]
-  });
-  isLoggedInShahid = false;
-  return browserInstance;
-}
-
-async function loginShahid(page) {
-  try {
-    await page.goto('https://shahid.mbc.net/ar/auth/login', { waitUntil: 'domcontentloaded', timeout: 20000 });
-    await new Promise(r => setTimeout(r, 2000));
-    const emailInput = await page.$('input[type="email"], input[name="email"], input[placeholder*="mail"]');
-    const passInput = await page.$('input[type="password"]');
-    if (emailInput && passInput) {
-      await emailInput.click({ clickCount: 3 });
-      await emailInput.type(SHAHID_EMAIL);
-      await passInput.click({ clickCount: 3 });
-      await passInput.type(SHAHID_PASSWORD);
-      await passInput.press('Enter');
-      await new Promise(r => setTimeout(r, 4000));
-      isLoggedInShahid = true;
-      console.log('Shahid login done');
-    }
-  } catch(e) { console.log('Shahid login error:', e.message); }
-}
-
 async function searchShahid(title) {
   try {
-    const browser = await getBrowser();
-    const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36');
-
-    // Login if needed
-    if (SHAHID_EMAIL && SHAHID_PASSWORD && !isLoggedInShahid) {
-      await loginShahid(page);
-    }
-
-    // Search
     const searchUrl = `https://shahid.mbc.net/ar/search?q=${encodeURIComponent(cleanTitle(title))}`;
-    await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
-    await new Promise(r => setTimeout(r, 3000));
-
-    // Find program page link
-    const programUrl = await page.evaluate(() => {
-      const links = Array.from(document.querySelectorAll('a'));
-      for (const a of links) {
-        const h = a.href || '';
-        if (h.includes('/ar/series/') || h.includes('/ar/movies/') || h.includes('/ar/shows/') || h.includes('/ar/program/')) {
-          return h;
-        }
-      }
-      return null;
-    });
-
-    console.log('Shahid program URL:', programUrl);
-
-    if (programUrl) {
-      await page.goto(programUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
-      await new Promise(r => setTimeout(r, 3000));
+    console.log('ScrapingBee fetching:', searchUrl);
+    
+    const html = await scrapingBeeGet(searchUrl);
+    if (!html) return null;
+    
+    // Extract image URLs from HTML
+    const imgMatches = html.match(/https?:\/\/[^"'\s]+\.(?:jpg|jpeg|png|webp)[^"'\s]*/gi) || [];
+    console.log('Found imgs:', imgMatches.length);
+    
+    // Filter for poster-like images (exclude logos, icons)
+    const posters = imgMatches.filter(url => 
+      !url.includes('logo') && 
+      !url.includes('icon') && 
+      !url.includes('avatar') &&
+      (url.includes('poster') || url.includes('thumb') || url.includes('cover') || url.includes('shahid') || url.includes('mbc'))
+    );
+    
+    if (posters.length) {
+      console.log('Shahid poster found:', posters[0]);
+      return posters[0];
     }
-
-    // Get poster
-    const imgUrl = await page.evaluate(() => {
-      const imgs = Array.from(document.querySelectorAll('img'));
-      const portraits = imgs.filter(img => {
-        const w = img.naturalWidth || img.width || 0;
-        const h = img.naturalHeight || img.height || 0;
-        const src = img.src || '';
-        return src && w >= 200 && h > w * 1.2 && !src.includes('logo') && !src.includes('icon') && !src.includes('avatar');
-      });
-      if (portraits.length) return portraits[0].src;
-      for (const img of imgs) {
-        const ds = img.getAttribute('data-src') || '';
-        if (ds && ds.startsWith('http') && !ds.includes('logo')) return ds;
-      }
-      return null;
-    });
-
-    await page.close();
-    console.log('Shahid poster:', imgUrl ? 'found' : 'not found');
-    return imgUrl;
+    
+    // Try any large image URL
+    if (imgMatches.length) return imgMatches[0];
+    return null;
   } catch(e) {
-    console.log('Shahid error:', e.message);
+    console.log('Shahid ScrapingBee error:', e.message);
     return null;
   }
 }
@@ -200,7 +143,6 @@ module.exports = async function handler(req, res) {
     } else if (source === 'shahid') {
       imgUrl = await searchShahid(title);
     } else {
-      // Auto: TMDB first, then Shahid if requested
       imgUrl = await searchTMDB(title, s);
       if (!imgUrl && isShahid) {
         imgUrl = await searchShahid(title);
