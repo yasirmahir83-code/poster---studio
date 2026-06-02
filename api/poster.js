@@ -202,20 +202,31 @@ async function searchWithPuppeteer(title, site) {
     if (site === 'shahid') {
       const searchUrl = `https://shahid.mbc.net/ar/search?q=${encodeURIComponent(title)}`;
       await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 15000 });
+      
       imgUrl = await page.evaluate(() => {
-        const imgs = document.querySelectorAll('img[src*="shahid"], img[src*="mbc"]');
-        for (const img of imgs) {
-          const w = img.naturalWidth || parseInt(img.getAttribute('width') || 0);
-          const h = img.naturalHeight || parseInt(img.getAttribute('height') || 0);
-          if (w >= 200 && h > w) return img.src;
-          if (w >= 200) return img.src;
+        // Look for poster images — must be portrait and larger than logo
+        const allImgs = Array.from(document.querySelectorAll('img'));
+        
+        // Filter: portrait images larger than 150px wide (excludes logos which are usually small/square)
+        const posters = allImgs.filter(img => {
+          const w = img.naturalWidth || img.width || 0;
+          const h = img.naturalHeight || img.height || 0;
+          const src = img.src || '';
+          // Must have valid src, be portrait, and be large enough
+          return src && w >= 150 && h > w * 1.2 && !src.includes('logo') && !src.includes('icon');
+        });
+        
+        if (posters.length) return posters[0].src;
+        
+        // Try data-src (lazy loaded images)
+        const lazySrcs = allImgs.filter(img => {
+          const ds = img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || '';
+          return ds && (ds.includes('poster') || ds.includes('thumb') || ds.includes('cover'));
+        });
+        if (lazySrcs.length) {
+          return lazySrcs[0].getAttribute('data-src') || lazySrcs[0].getAttribute('data-lazy-src');
         }
-        const allImgs = document.querySelectorAll('img');
-        for (const img of allImgs) {
-          if (img.src && (img.src.includes('poster') || img.src.includes('thumb') || img.src.includes('cover'))) {
-            return img.src;
-          }
-        }
+        
         return null;
       });
     }
