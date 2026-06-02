@@ -201,34 +201,42 @@ async function searchWithPuppeteer(title, site) {
     let imgUrl = null;
     if (site === 'shahid') {
       const searchUrl = `https://shahid.mbc.net/ar/search?q=${encodeURIComponent(title)}`;
-      await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 15000 });
-      
+      await page.goto(searchUrl, { waitUntil: 'networkidle2', timeout: 20000 });
+      await new Promise(r => setTimeout(r, 3000));
+
+      // Click first result to go to program page
+      const programUrl = await page.evaluate(() => {
+        const links = Array.from(document.querySelectorAll('a[href*="/ar/series/"], a[href*="/ar/movies/"], a[href*="/ar/shows/"], a[href*="/ar/program/"]'));
+        return links.length ? links[0].href : null;
+      });
+
+      console.log('Shahid program URL:', programUrl);
+
+      if (programUrl) {
+        await page.goto(programUrl, { waitUntil: 'networkidle2', timeout: 20000 });
+        await new Promise(r => setTimeout(r, 3000));
+      }
+
+      // Get poster from program page
       imgUrl = await page.evaluate(() => {
-        // Look for poster images — must be portrait and larger than logo
         const allImgs = Array.from(document.querySelectorAll('img'));
-        
-        // Filter: portrait images larger than 150px wide (excludes logos which are usually small/square)
         const posters = allImgs.filter(img => {
           const w = img.naturalWidth || img.width || 0;
           const h = img.naturalHeight || img.height || 0;
           const src = img.src || '';
-          // Must have valid src, be portrait, and be large enough
-          return src && w >= 150 && h > w * 1.2 && !src.includes('logo') && !src.includes('icon');
+          return src && w >= 200 && h > w * 1.2 && !src.includes('logo') && !src.includes('icon');
         });
-        
         if (posters.length) return posters[0].src;
         
-        // Try data-src (lazy loaded images)
-        const lazySrcs = allImgs.filter(img => {
+        // Try srcset or data-src
+        for (const img of allImgs) {
           const ds = img.getAttribute('data-src') || img.getAttribute('data-lazy-src') || '';
-          return ds && (ds.includes('poster') || ds.includes('thumb') || ds.includes('cover'));
-        });
-        if (lazySrcs.length) {
-          return lazySrcs[0].getAttribute('data-src') || lazySrcs[0].getAttribute('data-lazy-src');
+          if (ds && ds.startsWith('http')) return ds;
         }
-        
         return null;
       });
+
+      console.log('Shahid poster:', imgUrl);
     }
     await browser.close();
     return imgUrl;
