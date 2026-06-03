@@ -399,29 +399,12 @@ const YOUTUBE_CHANNELS = {
 async function searchYouTube(title, channel) {
   try {
     const cleanQ = cleanTitle(title);
-    const channelLower = (channel || '').toLowerCase().trim();
-    
-    // ابحث عن Channel ID
-    let channelId = null;
-    for (const [key, id] of Object.entries(YOUTUBE_CHANNELS)) {
-      if (channelLower.includes(key.toLowerCase())) {
-        channelId = id;
-        break;
-      }
-    }
-    
-    // بناء URL البحث
-    let searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(cleanQ)}&type=video&maxResults=5&key=${YOUTUBE_KEY}`;
-    if (channelId && !channelId.includes('_')) {
-      searchUrl += `&channelId=${channelId}`;
-    }
-    
-    const data = await httpsGet(searchUrl);
+    const query = channel ? `${cleanQ} ${channel}` : cleanQ;
+    const q = encodeURIComponent(query);
+    const data = await httpsGet(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${q}&type=video&maxResults=5&key=${YOUTUBE_KEY}`);
     const items = data.items || [];
-    
     for (const item of items) {
       const thumbs = item.snippet?.thumbnails;
-      // maxres = 1280x720 landscape ✅
       const img = thumbs?.maxres?.url || thumbs?.standard?.url || thumbs?.high?.url;
       if (img) return img;
     }
