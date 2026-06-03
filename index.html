@@ -57,7 +57,7 @@ body{background:#07070f;color:#fff;font-family:'Cairo',sans-serif;min-height:100
 /* POSTER WRAP */
 .pwrap{margin-bottom:24px;animation:fu .4s ease both}
 @keyframes fu{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
-canvas.pcv{display:block;width:700px;height:450px}
+canvas.pcv{display:block;width:500px;height:350px}
 
 /* ACTION BUTTONS */
 .pactions{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
@@ -276,7 +276,7 @@ td{padding:7px 11px;color:rgba(255,255,255,.48);border-bottom:1px solid rgba(255
 
 <script>
 // ══ CONFIG ══════════════════════════════════════════
-const W=700, H=450;
+const W=500, H=350;
 
 // ══ TABS ════════════════════════════════════════════
 function switchTab(id){
@@ -769,18 +769,7 @@ function drawPoster(canvas, posterImg, chLogoImg, ttLogoImg, time, cfg){
   // 1. BG
   ctx.fillStyle='#000';ctx.fillRect(0,0,W*S,H*S);
   if(posterImg){
-    // Draw background (cropped to fill) + centered image on top
-    const cw = W*S, ch = H*S;
-    const iw = posterImg.naturalWidth || posterImg.width;
-    const ih = posterImg.naturalHeight || posterImg.height;
-    // Background: fill entire canvas with cropped version
-    const bgScale = Math.max(cw/iw, ch/ih);
-    const bgW = iw*bgScale, bgH = ih*bgScale;
-    ctx.drawImage(posterImg, (cw-bgW)/2, (ch-bgH)/2, bgW, bgH);
-    // Foreground: centered image with correct aspect ratio
-    const scale = Math.min(cw/iw, ch/ih);
-    const dw = iw*scale, dh = ih*scale;
-    ctx.drawImage(posterImg, (cw-dw)/2, (ch-dh)/2, dw, dh);
+    ctx.drawImage(posterImg,0,0,W*S,H*S);
   }else{
     const grd=ctx.createLinearGradient(0,0,W*S,H*S);
     grd.addColorStop(0,'#0d0d2e');grd.addColorStop(.5,'#1a1050');grd.addColorStop(1,'#0d1a10');
