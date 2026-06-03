@@ -341,6 +341,23 @@ async function searchSimkl(title, skip) {
 }
 
 
+const YOUTUBE_KEY = 'AIzaSyDldDNQl0hZVzaJwwzxcJ_960yM5HdxS-M';
+
+async function searchYouTube(title, channel) {
+  try {
+    const query = channel ? `${cleanTitle(title)} ${channel}` : cleanTitle(title);
+    const q = encodeURIComponent(query);
+    const data = await httpsGet(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${q}&type=video&maxResults=5&key=${YOUTUBE_KEY}`);
+    const items = data.items || [];
+    for (const item of items) {
+      const thumbs = item.snippet?.thumbnails;
+      const img = thumbs?.maxres?.url || thumbs?.standard?.url || thumbs?.high?.url;
+      if (img) return img;
+    }
+    return null;
+  } catch(e) { return null; }
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json');
@@ -379,16 +396,19 @@ module.exports = async function handler(req, res) {
       if (isConcert) {
         imgUrl = await searchLastFM(title, s);
         if (!imgUrl) imgUrl = await searchTMDB(title, s);
+        if (!imgUrl) imgUrl = await searchYouTube(title, channel);
       } else if (isAnime) {
         imgUrl = await searchAniList(title, s);
         if (!imgUrl) imgUrl = await searchKitsu(title, s);
         if (!imgUrl) imgUrl = await searchTMDB(title, s);
         if (!imgUrl) imgUrl = await searchFanart(title, s);
+        if (!imgUrl) imgUrl = await searchYouTube(title, channel);
       } else if (isArabic) {
         imgUrl = await searchTMDB(title, s);
         if (!imgUrl) imgUrl = await searchElcinema(title);
         if (!imgUrl) imgUrl = await searchFanart(title, s);
         if (!imgUrl) imgUrl = await searchTVDB(title, s);
+        if (!imgUrl) imgUrl = await searchYouTube(title, channel);
       } else {
         imgUrl = await searchTMDB(title, s);
         if (!imgUrl) imgUrl = await searchFanart(title, s);
@@ -396,6 +416,8 @@ module.exports = async function handler(req, res) {
         if (!imgUrl) imgUrl = await searchTrakt(title, s);
         if (!imgUrl) imgUrl = await searchTVMaze(title, s);
         if (!imgUrl) imgUrl = await searchMyDramaList(title, s);
+        if (!imgUrl) imgUrl = await searchYouTube(title, channel);
+      }
         if (!imgUrl) imgUrl = await searchSimkl(title, s);
       }
     }
