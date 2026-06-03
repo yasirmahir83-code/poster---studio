@@ -343,14 +343,85 @@ async function searchSimkl(title, skip) {
 
 const YOUTUBE_KEY = 'AIzaSyDldDNQl0hZVzaJwwzxcJ_960yM5HdxS-M';
 
+// قاموس القنوات — اسم القناة → Channel ID على يوتيوب
+const YOUTUBE_CHANNELS = {
+  // القنوات العراقية
+  'الشرقية': 'UC4wI0bNpRBauwbKgRaQyTVQ',
+  'alsharqiya': 'UC4wI0bNpRBauwbKgRaQyTVQ',
+  'السومرية': 'UCWhdSvXarykqCL4fqS3rm1Q',
+  'alsumaria': 'UCWhdSvXarykqCL4fqS3rm1Q',
+  'العراقية': 'UC5h9SokuzgNiebEOzU2BHoA',
+  'aliraqia': 'UC5h9SokuzgNiebEOzU2BHoA',
+  'دجلة': 'UCQmFb4GrIxTRxMNwkWyGpuQ',
+  'dijlah': 'UCQmFb4GrIxTRxMNwkWyGpuQ',
+  'الفرات': 'UCYwkEsqOSoK7xj1JDNM9E8A',
+  'alfurat': 'UCYwkEsqOSoK7xj1JDNM9E8A',
+  'الرابعة': 'UC_ALRABIA',
+  'alrabia': 'UC_ALRABIA',
+  // القنوات السعودية والخليجية
+  'mbc': 'UCsLMJtJSsUmCf5NDm2BQSYQ',
+  'mbc1': 'UCsLMJtJSsUmCf5NDm2BQSYQ',
+  'mbc2': 'UCsLMJtJSsUmCf5NDm2BQSYQ',
+  'mbc3': 'UCsLMJtJSsUmCf5NDm2BQSYQ',
+  'mbc4': 'UCsLMJtJSsUmCf5NDm2BQSYQ',
+  'روتانا': 'UCx4i3cC6AZQT_j6c_hGwrPg',
+  'rotana': 'UCx4i3cC6AZQT_j6c_hGwrPg',
+  'السعودية': 'UCNabhOHOnkv3INjYRqGkYrw',
+  'saudi': 'UCNabhOHOnkv3INjYRqGkYrw',
+  'الكويتية': 'UCZtLv9bPKBia5HBwIpQVpfg',
+  'kuwait tv': 'UCZtLv9bPKBia5HBwIpQVpfg',
+  // القنوات المصرية
+  'mbc مصر': 'UCkP9ANYCXR7E01D7EgCy6tQ',
+  'mbc masr': 'UCkP9ANYCXR7E01D7EgCy6tQ',
+  'cbc': 'UCr3TiCODLFhvGJlVH-fteVQ',
+  'dmc': 'UCeRmKPR9IXFYOW1Yd4BKLOQ',
+  'on': 'UCy3SVMM8EqnGCOSbAFjiqmA',
+  'الحياة': 'UCgMJGgbmECIFpBKe5I3Bkrg',
+  'alhayat': 'UCgMJGgbmECIFpBKe5I3Bkrg',
+  'النهار': 'UCEbzqkj76TSTMjMJHIWkCMQ',
+  'alnahar': 'UCEbzqkj76TSTMjMJHIWkCMQ',
+  'ten': 'UC_TEN_CHANNEL',
+  'extra': 'UC_EXTRA',
+  // قنوات الأخبار
+  'الجزيرة': 'UCSls-6JSmFB4KCDCmTsJmFQ',
+  'aljazeera': 'UCSls-6JSmFB4KCDCmTsJmFQ',
+  'العربية': 'UCVQdpXqVUHHjJRaVKmFNObA',
+  'alarabiya': 'UCVQdpXqVUHHjJRaVKmFNObA',
+  'سكاي نيوز': 'UCblL3SjePIUGLWKg1SjWFRg',
+  'sky news arabic': 'UCblL3SjePIUGLWKg1SjWFRg',
+  // القنوات الأردنية
+  'رؤيا': 'UCmqycBPhA1LKJkHCHGbM0PA',
+  'roya': 'UCmqycBPhA1LKJkHCHGbM0PA',
+  'الأردنية': 'UCmPSZCKBGPFUQMiELwHZksg',
+  'jordan tv': 'UCmPSZCKBGPFUQMiELwHZksg',
+};
+
 async function searchYouTube(title, channel) {
   try {
-    const query = channel ? `${cleanTitle(title)} ${channel}` : cleanTitle(title);
-    const q = encodeURIComponent(query);
-    const data = await httpsGet(`https://www.googleapis.com/youtube/v3/search?part=snippet&q=${q}&type=video&maxResults=5&key=${YOUTUBE_KEY}`);
+    const cleanQ = cleanTitle(title);
+    const channelLower = (channel || '').toLowerCase().trim();
+    
+    // ابحث عن Channel ID
+    let channelId = null;
+    for (const [key, id] of Object.entries(YOUTUBE_CHANNELS)) {
+      if (channelLower.includes(key.toLowerCase())) {
+        channelId = id;
+        break;
+      }
+    }
+    
+    // بناء URL البحث
+    let searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(cleanQ)}&type=video&maxResults=5&key=${YOUTUBE_KEY}`;
+    if (channelId && !channelId.includes('_')) {
+      searchUrl += `&channelId=${channelId}`;
+    }
+    
+    const data = await httpsGet(searchUrl);
     const items = data.items || [];
+    
     for (const item of items) {
       const thumbs = item.snippet?.thumbnails;
+      // maxres = 1280x720 landscape ✅
       const img = thumbs?.maxres?.url || thumbs?.standard?.url || thumbs?.high?.url;
       if (img) return img;
     }
