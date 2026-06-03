@@ -769,22 +769,20 @@ function drawPoster(canvas, posterImg, chLogoImg, ttLogoImg, time, cfg){
   // 1. BG
   ctx.fillStyle='#000';ctx.fillRect(0,0,W*S,H*S);
   if(posterImg){
-    // Draw blurred background + centered image
+    // Draw blurred background + slightly stretched foreground
     const cw = W*S, ch = H*S;
     const iw = posterImg.naturalWidth || posterImg.width;
     const ih = posterImg.naturalHeight || posterImg.height;
-    // Blurred background
-    ctx.filter = 'blur(20px)';
+    // Background: light blur
+    ctx.filter = 'blur(8px)';
     const bgScale = Math.max(cw/iw, ch/ih);
     const bgW = iw*bgScale, bgH = ih*bgScale;
     ctx.drawImage(posterImg, (cw-bgW)/2, (ch-bgH)/2, bgW, bgH);
     ctx.filter = 'none';
-    // Darken background slightly
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.fillRect(0, 0, cw, ch);
-    // Centered image with correct aspect ratio
-    const scale = Math.min(cw/iw, ch/ih);
-    const dw = iw*scale, dh = ih*scale;
+    // Foreground: fit with slight horizontal stretch (max 8%)
+    const fitScale = Math.min(cw/iw, ch/ih);
+    const dh = ih*fitScale;
+    const dw = Math.min(iw*fitScale * 1.08, cw);
     ctx.drawImage(posterImg, (cw-dw)/2, (ch-dh)/2, dw, dh);
   }else{
     const grd=ctx.createLinearGradient(0,0,W*S,H*S);
