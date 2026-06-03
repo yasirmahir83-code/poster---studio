@@ -769,27 +769,7 @@ function drawPoster(canvas, posterImg, chLogoImg, ttLogoImg, time, cfg){
   // 1. BG
   ctx.fillStyle='#000';ctx.fillRect(0,0,W*S,H*S);
   if(posterImg){
-    // Draw stretched background + blur strips on sides + centered original
-    const cw = W*S, ch = H*S;
-    const iw = posterImg.naturalWidth || posterImg.width;
-    const ih = posterImg.naturalHeight || posterImg.height;
-    
-    // Step 1: Draw stretched background (fills full canvas)
-    ctx.drawImage(posterImg, 0, 0, cw, ch);
-    
-    // Step 2: Blur strips on sides
-    const stripW = 60 * S;
-    ctx.filter = 'blur(15px)';
-    const fitH = ch;
-    const fitW = iw * (ch/ih);
-    ctx.drawImage(posterImg, 0, 0, fitW, fitH, 0, 0, stripW + 20, ch);
-    ctx.drawImage(posterImg, 0, 0, fitW, fitH, cw - stripW - 20, 0, stripW + 20, ch);
-    ctx.filter = 'none';
-    
-    // Step 3: Draw original image centered at correct ratio
-    const scale = ch / ih;
-    const dw = iw * scale;
-    ctx.drawImage(posterImg, (cw-dw)/2, 0, dw, ch);
+    ctx.drawImage(posterImg,0,0,W*S,H*S);
   }else{
     const grd=ctx.createLinearGradient(0,0,W*S,H*S);
     grd.addColorStop(0,'#0d0d2e');grd.addColorStop(.5,'#1a1050');grd.addColorStop(1,'#0d1a10');

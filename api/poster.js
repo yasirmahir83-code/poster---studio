@@ -85,10 +85,14 @@ async function searchTMDB(title, skip) {
     if (!candidates.length) return null;
     const pick = candidates[skip % candidates.length];
     const imgData = await httpsGet(`https://api.themoviedb.org/3/${pick.type}/${pick.id}/images?api_key=${TMDB_KEY}`);
-    const posters = imgData.posters || [];
-    if (!posters.length) return null;
-    const poster = posters[Math.floor(skip/candidates.length) % posters.length];
-    return poster?.file_path ? TMDB_IMG + poster.file_path : null;
+    
+    // Use backdrops (landscape 16:9) instead of posters
+    const backdrops = (imgData.backdrops || []).filter(b => b.file_path);
+    if (backdrops.length) {
+      const backdrop = backdrops[Math.floor(skip/candidates.length) % backdrops.length];
+      return TMDB_IMG + backdrop.file_path;
+    }
+    return null;
   } catch(e) { return null; }
 }
 
