@@ -416,9 +416,8 @@ module.exports = async function handler(req, res) {
         if (!imgUrl) imgUrl = await searchTrakt(title, s);
         if (!imgUrl) imgUrl = await searchTVMaze(title, s);
         if (!imgUrl) imgUrl = await searchMyDramaList(title, s);
-        if (!imgUrl) imgUrl = await searchYouTube(title, channel);
-      }
         if (!imgUrl) imgUrl = await searchSimkl(title, s);
+        if (!imgUrl) imgUrl = await searchYouTube(title, channel);
       }
     }
 
