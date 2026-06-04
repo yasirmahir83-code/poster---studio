@@ -341,7 +341,7 @@ async function searchSimkl(title, skip) {
 }
 
 
-const YOUTUBE_KEY = 'AIzaSyDldDNQl0hZVzaJwwzxcJ_960yM5HdxS-M';
+const YOUTUBE_KEY = 'AIzaSyCpVo5qasCyTvpcqFFuecIHb8Gek8x9VjE';
 
 // قاموس القنوات — اسم القناة → Channel ID على يوتيوب
 const YOUTUBE_CHANNELS = {
