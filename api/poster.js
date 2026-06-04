@@ -412,6 +412,37 @@ async function searchYouTube(title, channel) {
   } catch(e) { return null; }
 }
 
+const EPG_TOKEN = '987c6312-e354-4abe-b964-6862ab29175';
+
+async function searchEPG(title) {
+  try {
+    const q = encodeURIComponent(cleanTitle(title));
+    // Search for content
+    const data = await httpsGet(
+      `https://api.epgservice.ru/v1/titles/films/search?q=${q}&limit=5`,
+      { Authorization: `Bearer ${EPG_TOKEN}` }
+    );
+    const results = data.results || data.items || [];
+    if (!results.length) return null;
+    const item = results[0];
+    const titleId = item.id;
+    if (!titleId) return null;
+    // Get 16:9 landscape poster
+    const imgData = await httpsGet(
+      `https://api.epgservice.ru/v1/titles/films/${titleId}/images/posters?format=16:9&language_id=1`,
+      { Authorization: `Bearer ${EPG_TOKEN}` }
+    );
+    const items = imgData.items || [];
+    const landscape = items.filter(i => i.position === 'horizontal' || i.format === '16:9');
+    if (landscape.length) return landscape[0].url;
+    if (items.length) return items[0].url;
+    return null;
+  } catch(e) {
+    console.log('EPG error:', e.message);
+    return null;
+  }
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/json');
@@ -456,15 +487,18 @@ module.exports = async function handler(req, res) {
         if (!imgUrl) imgUrl = await searchKitsu(title, s);
         if (!imgUrl) imgUrl = await searchTMDB(title, s);
         if (!imgUrl) imgUrl = await searchFanart(title, s);
+        if (!imgUrl) imgUrl = await searchEPG(title);
         if (!imgUrl) imgUrl = await searchYouTube(title, channel);
       } else if (isArabic) {
         imgUrl = await searchTMDB(title, s);
+        if (!imgUrl) imgUrl = await searchEPG(title);
         if (!imgUrl) imgUrl = await searchElcinema(title);
         if (!imgUrl) imgUrl = await searchFanart(title, s);
         if (!imgUrl) imgUrl = await searchTVDB(title, s);
         if (!imgUrl) imgUrl = await searchYouTube(title, channel);
       } else {
         imgUrl = await searchTMDB(title, s);
+        if (!imgUrl) imgUrl = await searchEPG(title);
         if (!imgUrl) imgUrl = await searchFanart(title, s);
         if (!imgUrl) imgUrl = await searchTVDB(title, s);
         if (!imgUrl) imgUrl = await searchTrakt(title, s);
