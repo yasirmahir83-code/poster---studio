@@ -417,7 +417,7 @@ module.exports = async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Cache-Control', 'no-store');
 
-  const { title, source='auto', skip='0', url: proxyUrl } = req.query;
+  const { title, source='auto', skip='0', url: proxyUrl, channel='' } = req.query;
 
   if (proxyUrl) {
     const dataUrl = await fetchImageAsBase64(proxyUrl);
